@@ -244,12 +244,9 @@ function memberLabel(index: EffectIndex, id: number, minLevel: number | undefine
   return `${meta.family} +${minLevel} or higher`;
 }
 
-/** Relics a need counts (see `Need.relics`). */
-export function needRelicKind(need: Need, index: EffectIndex): RelicKind {
-  if (need.relics) return need.relics;
-  if (need.kind === 'combo') return 'any';
-  const pool = index.meta(need.effect)?.pool ?? 'any';
-  return pool === 'deep' ? 'deep' : pool === 'normal' ? 'normal' : 'any';
+/** Relics a need counts (see `Need.relics`); 'auto' = by the kind of the matching effect. */
+export function needRelicKind(need: Need): RelicKind | 'auto' {
+  return need.relics ?? 'auto';
 }
 
 function needLabel(need: Need, index: EffectIndex): string {
@@ -275,6 +272,8 @@ function matchEffect(
   wanted: EffectMeta,
   minLevel: number,
   effects: number[],
+  /** "Auto" relics: only effects of the wanted one's kind (normal / deep) count. */
+  sameKind: boolean,
 ): Match | null {
   let best: Match | null = null;
   const wantedId = effectAtLevel(index, wanted, minLevel);
@@ -282,7 +281,7 @@ function matchEffect(
     const meta = index.meta(id);
     // Families already keep different effects apart (same-named normal / deep ones are split);
     // which relics count is the need's `relics` setting.
-    if (!meta || meta.family !== wanted.family) continue;
+    if (!meta || meta.family !== wanted.family || (sameKind && !poolsMatch(meta, wanted))) continue;
     const m: Match =
       meta.level >= minLevel
         ? {
@@ -331,7 +330,7 @@ function matchNeed(
         ? { full: true, weight: 1, effect: need.effect, levels: [0], surplus: 0 }
         : null;
     }
-    return matchEffect(index, meta, need.minLevel ?? meta.level, effects);
+    return matchEffect(index, meta, need.minLevel ?? meta.level, effects, !need.relics);
   }
   let total = 0;
   let allFull = true;
@@ -340,7 +339,7 @@ function matchNeed(
   for (const id of need.effects) {
     const meta = index.meta(id);
     const m = meta
-      ? matchEffect(index, meta, need.minLevels?.[id] ?? meta.level, effects)
+      ? matchEffect(index, meta, need.minLevels?.[id] ?? meta.level, effects, !need.relics)
       : effects.includes(id)
         ? { full: true, weight: 1, effect: id, levels: [0], surplus: 0 }
         : null;
@@ -626,10 +625,15 @@ export function planSell(
         );
       }
 
-      const relicKind = needRelicKind(need, index);
+      const relicKind = needRelicKind(need);
       for (const unit of units) {
         if (unit.color && !colors.includes(unit.color)) continue;
-        if (relicKind !== 'any' && unit.deep !== (relicKind === 'deep')) continue;
+        if (
+          (relicKind === 'normal' || relicKind === 'deep') &&
+          unit.deep !== (relicKind === 'deep')
+        ) {
+          continue;
+        }
         const bucket = byColor.get(need.colorScope === 'perColor' ? unit.color : null);
         if (!bucket) continue;
         const match = matchNeed(config, index, need, unit.spec);

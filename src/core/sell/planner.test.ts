@@ -242,6 +242,7 @@ describe('levels and relic kinds', () => {
     kind: 'combo',
     effects: [PHYS_4, BESTIAL],
     minLevels: { [PHYS_4]: 1 },
+    relics: 'any', // as the Groups tab sets it: the levels live on both kinds of relic
     copies: 1,
     colorScope: 'any',
     importance: 'mustKeep',
@@ -280,21 +281,17 @@ describe('levels and relic kinds', () => {
     expect(plan.sell.every((e) => e.spec === plus3)).toBe(true);
   });
 
-  it('effect needs count their own kind of relic unless told otherwise', () => {
+  it('Auto relics (plans saved before the setting) match by the effect, as before', () => {
     const deepPlus2 = relic(DEEP_RED, [PHYS_2]);
-    expect(
-      planSell([deepPlus2], config([effectNeed(PHYS_2, { importance: 'mustKeep' })])).kept,
-    ).toEqual([]);
-    expect(
-      planSell(
-        [deepPlus2],
-        config([effectNeed(PHYS_2, { importance: 'mustKeep', relics: 'deep' })]),
-      ).kept,
-    ).toHaveLength(1);
-    expect(
-      planSell([deepPlus2], config([effectNeed(PHYS_2, { importance: 'mustKeep', relics: 'any' })]))
-        .kept,
-    ).toHaveLength(1);
+    const need = (relics?: 'normal' | 'deep' | 'any') =>
+      config([effectNeed(PHYS_2, { importance: 'mustKeep', ...(relics ? { relics } : {}) })]);
+    // A deep relic carrying the normal +2 effect counts, as it did when the plan was made.
+    expect(planSell([deepPlus2], need()).kept).toHaveLength(1);
+    expect(planSell([deepPlus2], need('normal')).kept).toEqual([]);
+    expect(planSell([deepPlus2], need('deep')).kept).toHaveLength(1);
+    expect(planSell([deepPlus2], need('any')).kept).toHaveLength(1);
+    // Auto keeps normal and deep levels apart: a deep +3 doesn't count for a normal +2 need.
+    expect(planSell([relic(DEEP_RED, [PHYS_3])], need()).kept).toEqual([]);
   });
 });
 

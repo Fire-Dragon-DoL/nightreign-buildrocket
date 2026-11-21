@@ -60,6 +60,54 @@ describe('.rsp files', () => {
     expect(doc.neverSell[0].name).toBe('Grand Burning Scene');
   });
 
+  it('loads plans saved by earlier builds (no Relics setting, no combo levels)', () => {
+    const old = {
+      format: 'buildrocket-rsp',
+      version: 1,
+      savedAt: '2026-11-21T10:00:00.000Z',
+      effectRules: { families: [], stacksWithSelf: [], noStack: [], stack: [], curseDefaults: [] },
+      groups: [
+        {
+          name: 'Fire (Executor)',
+          needs: [
+            {
+              kind: 'combo',
+              effects: [{ id: 6001601, name: '[Relic] Fire Attack Power Up +4' }, { id: 6611302 }],
+              copies: 1,
+              colorScope: 'perColor',
+              colors: ['Red'],
+              importance: 'high',
+              curseOverrides: [{ curse: { id: 6850500 }, penalty: 'fine' }],
+            },
+            {
+              kind: 'effect',
+              effect: { id: 7001502 },
+              copies: 2,
+              colorScope: 'any',
+              importance: 'mustKeep',
+            },
+          ],
+        },
+      ],
+      neverSell: [],
+    };
+    const parsed = parseRsp(JSON.stringify(old));
+    expect(parsed.warnings).toEqual([]);
+    const [combo, single] = parsed.config.groups[0]?.needs ?? [];
+    expect(combo).toEqual({
+      kind: 'combo',
+      effects: [6001601, 6611302],
+      copies: 1,
+      colorScope: 'perColor',
+      colors: ['Red'],
+      importance: 'high',
+      curseOverrides: { 6850500: 'fine' },
+    });
+    expect(single).not.toHaveProperty('relics');
+    // Saving it again doesn't invent settings.
+    expect(JSON.parse(serializeRsp(parsed.config)).groups[0].needs[1]).not.toHaveProperty('relics');
+  });
+
   it('keeps unknown ids and warns about them', () => {
     const doc = JSON.parse(serializeRsp(emptyConfig()));
     doc.groups = [

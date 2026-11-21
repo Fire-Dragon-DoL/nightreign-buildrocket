@@ -190,7 +190,12 @@ function GroupCard({ config, update, index, groupIndex }: Props & { groupIndex: 
                                   update((c) =>
                                     updateNeed(c, groupIndex, ni, (n) =>
                                       n.kind === 'combo'
-                                        ? { ...n, minLevels: { ...n.minLevels, [id]: level } }
+                                        ? {
+                                            ...n,
+                                            minLevels: { ...n.minLevels, [id]: level },
+                                            // Lower levels may live on the other kind of relic.
+                                            relics: n.relics ?? 'any',
+                                          }
                                         : n,
                                     ),
                                   )
@@ -213,10 +218,23 @@ function GroupCard({ config, update, index, groupIndex }: Props & { groupIndex: 
                     </td>
                     <td>
                       <select
-                        value={needRelicKind(need, index)}
+                        value={needRelicKind(need)}
                         data-testid="need-relics"
-                        onChange={(e) => setNeed(ni, { relics: e.target.value as RelicKind })}
+                        title="Auto: a relic counts when its effect is the same kind (normal / deep) as the wanted one"
+                        onChange={(e) =>
+                          update((c) =>
+                            updateNeed(c, groupIndex, ni, (n) => {
+                              const { relics: _, ...rest } = n;
+                              return (
+                                e.target.value === 'auto'
+                                  ? rest
+                                  : { ...rest, relics: e.target.value as RelicKind }
+                              ) as Need;
+                            }),
+                          )
+                        }
                       >
+                        <option value="auto">Auto (effect's kind)</option>
                         {RELIC_KINDS.map((k) => (
                           <option key={k} value={k}>
                             {RELIC_KIND_LABELS[k]}
@@ -329,6 +347,7 @@ function GroupCard({ config, update, index, groupIndex }: Props & { groupIndex: 
                 copies: 1,
                 colorScope: 'any',
                 importance: 'normal',
+                relics: 'any',
               });
               setCombo([]);
             }}

@@ -44,8 +44,9 @@ interface NeedBase {
   /** Curse id → penalty for this need only (overrides the curse's default). */
   curseOverrides?: Record<number, CursePenalty>;
   /**
-   * Relics that count. Default: an effect need counts relics of its effect's kind (a normal effect,
-   * normal relics); a combo counts both (deep relics also roll many normal effects).
+   * Relics that count: normal, Deep of Night or both. Missing ("Auto", how plans saved before this
+   * setting existed behave): a relic counts when its matching effect is of the same kind as the
+   * wanted one, whatever the relic.
    */
   relics?: RelicKind;
 }
