@@ -42,10 +42,10 @@ export function SeedTab({ character, update }: Props) {
   return (
     <div className="seed-tab">
       <p className="intro">
-        Each picked build becomes a group named after it: every relic's effects as a <b>combo</b>{' '}
-        (same relic), plus each effect on its own per color, with as many copies as the build uses.
-        Everything starts at <b>{IMPORTANCE_LABELS[SEED_IMPORTANCE]}</b> importance. This is a
-        one-time copy: the config won't follow later changes to the save.
+        Mark what your builds use as worth keeping: each picked build becomes a group named after
+        it, with every relic's effects as a <b>combo</b> (same relic) and each effect on its own per
+        color, as many copies as the build uses, at <b>{IMPORTANCE_LABELS[SEED_IMPORTANCE]}</b>{' '}
+        importance. It's a one-time copy: the plan won't follow later changes to the save.
       </p>
       <div className="build-picker">
         <div className="build-picker__actions">

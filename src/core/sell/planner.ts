@@ -1,6 +1,6 @@
 /**
- * Sell Planner: rank every sellable relic by how risky it is to sell, given
- * what the config wants to keep.
+ * Sell Planner: which relics can be sold without leaving anything the config
+ * wants short, and why each one is safe.
  *
  * Model (see claude/plan-sell-planner.md):
  * - A need wants `copies` relics with an effect (or a combo of effects on one
@@ -10,9 +10,20 @@
  *   in for missing copies only, one each (and only if they stack with the
  *   copies already counted).
  * - Unsellable relics never appear in the list but count toward every need.
- * - Planning is greedy over the whole list: repeatedly sell the relic whose
- *   sale is least risky right now, assuming everything before it is sold.
- *   So "sell everything above this line" is safe in the order shown.
+ * - Selection is rule based, not score based. A relic is suggested only if,
+ *   after selling it and everything suggested before it, every need still
+ *   meets its target. Relics are taken by reason, strongest first:
+ *   1. nothing on it is wanted;
+ *   2. covered: a relic you keep (same kind and color) has everything wanted
+ *      from it, at the same or a higher level (that relic is then kept);
+ *   3. spares: each wanted effect or combo still has enough copies;
+ *   4. possible godrolls nothing wants, last, for review.
+ *   Within a reason the least valuable relic goes first. Each reason is
+ *   recorded when the relic is picked, so "sell everything above this line"
+ *   holds in the order shown.
+ * - The risk number only summarises the reason; it never decides the order.
+ * - Relics that would leave a Low or Normal need short are listed apart
+ *   ("would leave you short"); High and Must keep ones are kept.
  */
 import { type RelicSpec, specKey } from '../builds/builds.ts';
 import { catalog, effectName, RELIC_COLOR_NAMES, rollRules } from '../catalog/catalog.ts';
@@ -30,7 +41,7 @@ import { buildEffectIndex, type EffectIndex, type EffectMeta } from './effects.t
 
 /** A partial combo match is worth this much of the members it has. */
 export const PARTIAL_COMBO_FACTOR = 0.75;
-/** Risk floor for relics flagged as possible godrolls. */
+/** Risk shown for relics flagged as possible godrolls. */
 export const GODROLL_RISK = 60;
 
 const IMPORTANCE_WEIGHT: Record<Importance, number> = {
@@ -40,7 +51,7 @@ const IMPORTANCE_WEIGHT: Record<Importance, number> = {
   high: 4,
   mustKeep: 8,
 };
-/** Risk of selling the last copies a need can't spare, by importance. */
+/** Risk shown for selling copies a need can't spare (the short list), by importance. */
 const BREAK_RISK: Record<Importance, number> = {
   ignore: 0,
   low: 55,
@@ -48,7 +59,7 @@ const BREAK_RISK: Record<Importance, number> = {
   high: 90,
   mustKeep: 100,
 };
-/** Risk of selling a spare when exactly the target is left; it halves with each extra spare. */
+/** Risk shown for a spare when exactly the target is left; it halves with each extra spare. */
 const SPARE_RISK: Record<Importance, number> = {
   ignore: 0,
   low: 10,
@@ -61,7 +72,41 @@ const EPS = 1e-9;
 
 export type SellFlag = 'godroll' | 'stackingUnknown';
 
-/** One line of the sell list: `count` identical relics (same `specKey`) at one risk. */
+/** Why a relic can go (in the order the planner takes them). */
+export type Verdict = 'unwanted' | 'covered' | 'spares' | 'review';
+const VERDICT_RANK: Record<Verdict, number> = { unwanted: 0, covered: 1, spares: 2, review: 3 };
+
+/** One line of explanation next to a relic. */
+export type WhyLine =
+  /** Nothing on the relic is wanted: its effects, and which of them the plan ignores on purpose. */
+  | { kind: 'unwanted'; effects: number[]; ignored: number[] }
+  /** A relic you keep has everything wanted from this one. */
+  | {
+      kind: 'covered';
+      by: RelicSpec;
+      /** Copies of that relic you still have. */
+      copies: number;
+      /** It can't be sold (unique relic), so it will always be there. */
+      permanent: boolean;
+      /** Other kept relics that would cover it too. */
+      more: number;
+    }
+  /** A need this relic counts toward, after selling it: `keep` copies left, `want` wanted. */
+  | {
+      kind: 'need';
+      group: string;
+      label: string;
+      color: ColorName | null;
+      importance: Importance;
+      keep: number;
+      /** Copies counting lower-level / partial backups at their weight. */
+      coverage: number;
+      want: number;
+      /** Selling it leaves the need short. */
+      short: boolean;
+    };
+
+/** One line of the sell list: `count` identical relics (same `specKey`) with one reason. */
 export interface SellEntry {
   spec: RelicSpec;
   key: string;
@@ -69,11 +114,24 @@ export interface SellEntry {
   count: number;
   /** Copies of this relic owned in total. */
   owned: number;
-  /** 0 = safe to sell, 99 = very risky (100 = never, those are in `kept`). */
+  verdict: Verdict;
+  /** Summary of the reason: 0 = nothing wanted, higher = thinner margin. Never decides the order. */
   risk: number;
-  /** Why it's safe, or what it would hurt. */
+  why: WhyLine[];
+  /** The reason in one line of text (CSV). */
   reason: string;
   flags: SellFlag[];
+}
+
+/** A relic that would leave a Low or Normal need short (never in the sell list). */
+export interface ShortEntry {
+  spec: RelicSpec;
+  key: string;
+  count: number;
+  owned: number;
+  risk: number;
+  why: WhyLine[];
+  reason: string;
 }
 
 export interface KeptEntry {
@@ -98,9 +156,11 @@ export interface NeedStatus {
 }
 
 export interface SellPlan {
-  /** Sorted by risk, safest first. */
+  /** Safe to sell, in order: everything above any line is safe. */
   sell: SellEntry[];
-  /** Sellable relics the plan keeps (risk 100), with their reasons. */
+  /** Would leave a Low or Normal need short: only if you accept that. */
+  short: ShortEntry[];
+  /** Sellable relics the plan keeps, with their reasons. */
   kept: KeptEntry[];
   /** Relics the game won't let you sell (or on the never-sell list); they count toward needs. */
   unsellable: number;
@@ -122,6 +182,10 @@ interface Unit {
   value: number;
   godroll: boolean;
   stackingUnknown: boolean;
+  /** Named as the cover of a sold relic: kept so that reason stays true. */
+  pinned: boolean;
+  /** Pinned as the cover of this many sold relics. */
+  covers: number;
 }
 
 interface Contribution {
@@ -300,54 +364,141 @@ function coverageWithout(bucket: Bucket, index: EffectIndex, c: Contribution): n
   return value;
 }
 
-const colorSuffix = (b: Bucket) => (b.color ? ` (${b.color})` : '');
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
+const isHard = (i: Importance) => i === 'high' || i === 'mustKeep';
 
-interface Assessment {
+interface Evaluation {
+  /** null: selling it would leave a need short. */
+  verdict: Verdict | null;
+  why: WhyLine[];
   risk: number;
-  reason: string;
+  cover?: Unit;
+  /** Leaves a High or Must keep need short. */
+  hard: boolean;
 }
 
-/** Risk of selling `unit` now, with the reason from the need it hurts most. */
-function assess(unit: Unit, index: EffectIndex): Assessment {
-  let worst: Assessment = { risk: 0, reason: '' };
-  let sum = 0;
-  for (const c of unit.contributions) {
+/** Full copies left in a bucket without `skip`. */
+const fullWithout = (b: Bucket, skip: Contribution) =>
+  b.members.reduce((n, c) => n + (c.unit.alive && c.full && c !== skip ? 1 : 0), 0);
+
+/** The best kept relic carrying everything `u` is wanted for (same kind and color), if any. */
+function findCover(
+  u: Unit,
+  byUnit: Map<Unit, Map<Bucket, Contribution>>,
+): { cover: Unit; more: number } | null {
+  const [first, ...rest] = u.contributions;
+  if (!first) return null;
+  const covers: Unit[] = [];
+  for (const m of first.bucket.members) {
+    const v = m.unit;
+    if (v === u || !v.alive || v.color !== u.color || v.deep !== u.deep) continue;
+    const ok = [first, ...rest].every((c) => {
+      const vc = byUnit.get(v)?.get(c.bucket);
+      return !!vc && (vc.full || (!c.full && vc.weight >= c.weight));
+    });
+    if (ok) covers.push(v);
+  }
+  if (covers.length === 0) return null;
+  // Prefer covers that will always be there (unique or already pinned), then the most valuable.
+  covers.sort(
+    (a, b) =>
+      Number(b.pinned || !b.sellable) - Number(a.pinned || !a.sellable) ||
+      b.value - a.value ||
+      a.index - b.index,
+  );
+  const best = covers[0] as Unit;
+  return { cover: best, more: new Set(covers.map((c) => c.key)).size - 1 };
+}
+
+function evaluate(
+  u: Unit,
+  index: EffectIndex,
+  byUnit: Map<Unit, Map<Bucket, Contribution>>,
+  aliveCopies: (key: string) => number,
+  ignoredFamilies: ReadonlySet<string>,
+): Evaluation {
+  if (u.contributions.length === 0) {
+    const effects = relicEffects(u.spec);
+    const ignored = effects.filter((e) => ignoredFamilies.has(index.meta(e)?.family ?? ''));
+    return {
+      verdict: u.godroll ? 'review' : 'unwanted',
+      why: [{ kind: 'unwanted', effects, ignored }],
+      risk: u.godroll ? GODROLL_RISK : 0,
+      hard: false,
+    };
+  }
+  const why: WhyLine[] = [];
+  let shortAny = false;
+  let hard = false;
+  let spareRisk = 0;
+  let breakRisk = 0;
+  for (const c of u.contributions) {
     const b = c.bucket;
     const before = bucketCoverage(b, index);
     const after = coverageWithout(b, index, c);
     const loss = before - after;
-    if (loss <= EPS) continue;
-    const where = `${b.group} › ${b.label}${colorSuffix(b)}`;
-    let risk: number;
-    let reason: string;
-    if (after + EPS >= b.target) {
-      const spares = after - b.target;
-      risk = SPARE_RISK[b.importance] / 2 ** spares;
-      reason =
-        spares > EPS
-          ? `${where}: ${fmt(spares)} spare left after selling`
-          : `${where}: exactly ${b.target} left after selling`;
-    } else {
-      // Must keep means must keep; otherwise losing a backup hurts less than losing a copy.
-      risk =
-        b.importance === 'mustKeep'
-          ? 100
-          : BREAK_RISK[b.importance] * (0.5 + 0.5 * Math.min(1, loss));
-      reason = `${where}: only ${fmt(after)} of ${b.target} left after selling`;
+    const short = loss > EPS && after + EPS < b.target;
+    why.push({
+      kind: 'need',
+      group: b.group,
+      label: b.label,
+      color: b.color,
+      importance: b.importance,
+      keep: fullWithout(b, c),
+      coverage: Math.round(after * 100) / 100,
+      want: b.target,
+      short,
+    });
+    if (short) {
+      shortAny = true;
+      if (isHard(b.importance)) hard = true;
+      breakRisk = Math.max(breakRisk, BREAK_RISK[b.importance] * (0.5 + 0.5 * Math.min(1, loss)));
+    } else if (loss > EPS) {
+      spareRisk = Math.max(spareRisk, SPARE_RISK[b.importance] / 2 ** (after - b.target));
     }
-    sum += risk;
-    if (risk > worst.risk) worst = { risk, reason };
   }
-  let risk = worst.risk >= 100 ? 100 : Math.min(99, worst.risk + 0.1 * (sum - worst.risk));
-  let reason = worst.reason;
-  if (unit.godroll && risk < GODROLL_RISK) {
-    risk = GODROLL_RISK;
-    reason = 'Possible godroll: matches nothing in your config, review before selling';
+  // Short lines first, then the tightest margins.
+  why.sort((a, b) =>
+    a.kind === 'need' && b.kind === 'need'
+      ? Number(b.short) - Number(a.short) || a.keep - a.want - (b.keep - b.want)
+      : 0,
+  );
+  if (shortAny) return { verdict: null, why, risk: Math.min(99, breakRisk), hard };
+
+  const found = findCover(u, byUnit);
+  if (found) {
+    const { cover, more } = found;
+    const copies = aliveCopies(cover.key) - (cover.key === u.key ? 1 : 0);
+    const permanent = !cover.sellable;
+    // Low: something you keep has it all; a bit higher when that is your last copy of it.
+    const risk = permanent ? 1 : copies > 1 ? 3 : 8;
+    return {
+      verdict: 'covered',
+      why: [{ kind: 'covered', by: cover.spec, copies, permanent, more }, ...why],
+      risk: Math.max(risk, Math.min(spareRisk, 20)),
+      cover,
+      hard: false,
+    };
   }
-  if (!reason)
-    reason = unit.contributions.length ? 'Plenty of spares' : 'Not wanted by your config';
-  return { risk, reason };
+  return { verdict: 'spares', why, risk: Math.max(5, Math.min(55, spareRisk)), hard: false };
+}
+
+/** The reason in one line of text. */
+export function reasonText(why: WhyLine[], name: (spec: RelicSpec) => string): string {
+  return why
+    .map((w) => {
+      if (w.kind === 'unwanted') {
+        return w.effects.length ? 'Nothing on it is in your plan' : 'No effects';
+      }
+      if (w.kind === 'covered') {
+        const copies = w.permanent ? 'unique, always kept' : `you keep ${w.copies}`;
+        return `Covered by ${name(w.by)} (${copies})${w.more ? `, +${w.more} more` : ''}`;
+      }
+      const backups =
+        w.coverage > w.keep + EPS ? ` (+${fmt(w.coverage - w.keep)} from backups)` : '';
+      return `${w.group} › ${w.label}${w.color ? ` (${w.color})` : ''}: keep ${w.keep}${backups}, want ${w.want}${w.short ? ' — SHORT' : ''}`;
+    })
+    .join('; ');
 }
 
 export interface PlanOptions {
@@ -376,6 +527,8 @@ export function planSell(
     value: 0,
     godroll: false,
     stackingUnknown: false,
+    pinned: false,
+    covers: 0,
   }));
 
   // Buckets: one per need and color (perColor) or one per need (any).
@@ -430,61 +583,79 @@ export function planSell(
     }
   }
 
+  const byUnit = new Map<Unit, Map<Bucket, Contribution>>();
+  for (const u of units) byUnit.set(u, new Map(u.contributions.map((c) => [c.bucket, c])));
   for (const unit of units) {
     for (const curse of unit.spec.curses) {
       if (curse !== null) unit.value -= CURSE_VALUE[cursePenalty(config, undefined, curse)];
     }
+    // Between equals, keep the one with more effects.
+    unit.value += 0.001 * unit.spec.effects.filter((e) => e !== null).length;
     if (unit.sellable && unit.contributions.length === 0) {
       unit.godroll = looksLikeGodroll(unit.spec, index, config, ignoredFamilies);
     }
   }
 
-  // Greedy: sell the least risky relic, update, repeat.
+  const alive = new Map<string, number>();
+  for (const u of units) alive.set(u.key, (alive.get(u.key) ?? 0) + 1);
+  const aliveCopies = (key: string) => alive.get(key) ?? 0;
+
+  // Rule-based selection: the safe relic with the strongest reason, least valuable first.
   const candidates = units.filter((u) => u.sellable);
-  const assessments = new Map<Unit, Assessment>();
-  for (const u of candidates) assessments.set(u, assess(u, index));
-  const sold: { unit: Unit; risk: number; reason: string }[] = [];
+  const evaluations = new Map<Unit, Evaluation>();
+  const reevaluate = (u: Unit) =>
+    evaluations.set(u, evaluate(u, index, byUnit, aliveCopies, ignoredFamilies));
+  for (const u of candidates) reevaluate(u);
+  const sold: { unit: Unit; ev: Evaluation }[] = [];
   const total = candidates.length;
   let remaining = candidates.slice();
-  while (remaining.length > 0) {
+  for (;;) {
     let best: Unit | undefined;
-    let bestA: Assessment | undefined;
+    let bestEv: Evaluation | undefined;
     for (const u of remaining) {
-      const a = assessments.get(u) as Assessment;
+      const ev = evaluations.get(u) as Evaluation;
+      if (u.pinned || ev.verdict === null) continue;
       if (
         !best ||
-        !bestA ||
-        a.risk < bestA.risk - EPS ||
-        (Math.abs(a.risk - bestA.risk) <= EPS &&
+        !bestEv?.verdict ||
+        VERDICT_RANK[ev.verdict] < VERDICT_RANK[bestEv.verdict] ||
+        (ev.verdict === bestEv.verdict &&
           (u.value < best.value - EPS ||
             (Math.abs(u.value - best.value) <= EPS && u.index < best.index)))
       ) {
         best = u;
-        bestA = a;
+        bestEv = ev;
       }
     }
-    if (!best || !bestA || bestA.risk >= 100) break;
-    sold.push({ unit: best, risk: bestA.risk, reason: bestA.reason });
+    if (!best || !bestEv) break;
+    sold.push({ unit: best, ev: bestEv });
     best.alive = false;
+    alive.set(best.key, aliveCopies(best.key) - 1);
     remaining = remaining.filter((u) => u !== best);
     const dirty = new Set<Unit>();
+    if (bestEv.cover) {
+      bestEv.cover.pinned = true;
+      bestEv.cover.covers++;
+    }
     for (const c of best.contributions) {
       c.bucket.current = undefined;
       c.bucket.without.clear();
       for (const m of c.bucket.members) if (m.unit.alive && m.unit.sellable) dirty.add(m.unit);
     }
-    for (const u of dirty) assessments.set(u, assess(u, index));
+    for (const u of dirty) reevaluate(u);
     options.onProgress?.(sold.length, total);
   }
   options.onProgress?.(total, total);
 
-  // Collapse identical relics at the same (rounded) risk into one line.
   const owned = new Map<string, number>();
   for (const u of units) owned.set(u.key, (owned.get(u.key) ?? 0) + 1);
+  const name = (spec: RelicSpec) => catalog().relic(spec.itemId)?.name ?? `Relic ${spec.itemId}`;
+
+  // Collapse identical relics with the same reason into one line.
   const lines = new Map<string, SellEntry>();
-  for (const { unit, risk, reason } of sold) {
-    const rounded = Math.round(risk);
-    const lineKey = `${unit.key}#${rounded}`;
+  for (const { unit, ev } of sold) {
+    const risk = Math.round(ev.risk);
+    const lineKey = `${unit.key}#${ev.verdict}#${risk}`;
     const line = lines.get(lineKey);
     if (line) {
       line.count++;
@@ -498,31 +669,56 @@ export function planSell(
       key: unit.key,
       count: 1,
       owned: owned.get(unit.key) ?? 1,
-      risk: rounded,
-      reason,
+      verdict: ev.verdict as Verdict,
+      risk,
+      why: ev.why,
+      reason: reasonText(ev.why, name),
       flags,
     });
   }
-  const sell = [...lines.values()].sort((a, b) => a.risk - b.risk);
+  const sell = [...lines.values()];
 
+  // What's left: covers of sold relics and relics guarding High / Must keep needs are kept; the
+  // rest would leave a Low or Normal need short.
+  const shortLines = new Map<string, ShortEntry>();
   const keptByKey = new Map<string, KeptEntry>();
   for (const u of remaining) {
+    const ev = evaluations.get(u) as Evaluation;
+    if (!u.pinned && !ev.hard && ev.verdict === null) {
+      const risk = Math.round(ev.risk);
+      const lineKey = `${u.key}#${risk}`;
+      const line = shortLines.get(lineKey);
+      if (line) line.count++;
+      else {
+        const why = ev.why.filter((w) => w.kind !== 'need' || w.short);
+        shortLines.set(lineKey, {
+          spec: u.spec,
+          key: u.key,
+          count: 1,
+          owned: owned.get(u.key) ?? 1,
+          risk,
+          why,
+          reason: reasonText(why, name),
+        });
+      }
+      continue;
+    }
+    const reasons = [
+      ...(u.pinned ? [`Covers ${u.covers} relic(s) in the sell list`] : []),
+      ...ev.why.flatMap((w) =>
+        w.kind === 'need' && w.short
+          ? [
+              `${w.group} › ${w.label}${w.color ? ` (${w.color})` : ''}: only ${w.keep} of ${w.want} left without it`,
+            ]
+          : [],
+      ),
+    ];
     const entry = keptByKey.get(u.key) ?? {
       spec: u.spec,
       key: u.key,
       count: 0,
       owned: owned.get(u.key) ?? 1,
-      reasons: [
-        ...new Set(
-          u.contributions
-            .filter(
-              (c) =>
-                c.bucket.importance === 'mustKeep' ||
-                coverageWithout(c.bucket, index, c) < c.bucket.target,
-            )
-            .map((c) => `${c.bucket.group} › ${c.bucket.label}${colorSuffix(c.bucket)}`),
-        ),
-      ],
+      reasons,
     };
     entry.count++;
     keptByKey.set(u.key, entry);
@@ -542,6 +738,7 @@ export function planSell(
 
   return {
     sell,
+    short: [...shortLines.values()].sort((a, b) => a.risk - b.risk),
     kept: [...keptByKey.values()],
     unsellable: units.filter((u) => !u.sellable).length,
     needs,

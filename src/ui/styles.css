@@ -738,3 +738,74 @@ input.group-card__name {
   gap: 0.6rem;
   min-width: 0;
 }
+
+.why-cell {
+  white-space: normal;
+  min-width: 34rem;
+  width: 100%;
+}
+
+.why__lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.why__details summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.why__short {
+  color: var(--yellow);
+}
+
+.why__color--red {
+  color: var(--red);
+}
+.why__color--blue {
+  color: var(--blue);
+}
+.why__color--yellow {
+  color: var(--yellow);
+}
+.why__color--green {
+  color: var(--green);
+}
+
+.relic-ref {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.relic-ref__curses {
+  color: var(--error);
+}
+
+.verdict {
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.05rem 0.45rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+}
+
+.verdict--unwanted {
+  background: color-mix(in srgb, var(--green) 30%, transparent);
+}
+.verdict--covered {
+  background: color-mix(in srgb, var(--blue) 30%, transparent);
+}
+.verdict--spares {
+  background: color-mix(in srgb, var(--yellow) 25%, transparent);
+}
+.verdict--review {
+  border-color: var(--accent);
+  color: var(--accent);
+}

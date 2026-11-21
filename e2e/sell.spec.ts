@@ -93,10 +93,14 @@ test('plans what to sell, saves and reloads the plan, seeds from builds', async 
   await page.getByTestId('tab-results').click();
   await expect(page.getByTestId('sell-summary')).toContainText('3 relic(s) can be sold, 2 kept');
   await expect(page.getByTestId('search-hint').first()).toBeVisible();
+  // Each line says why: the third Magic relic is covered by one of the two kept.
+  const magicRow = page.getByTestId('sell-row').filter({ hasText: 'Magic Attack Power Up +2' });
+  await expect(magicRow.getByTestId('why')).toContainText('Everything wanted from it is also on');
+  await expect(magicRow.getByTestId('why')).toContainText('you keep 2 of those');
 
   await page.getByRole('button', { name: 'Export CSV' }).click();
   await expect(page.getByTestId('message')).toContainText('Exported');
-  expect((await lastWritten(page)).startsWith('﻿Risk,Sell,Owned,Relic,')).toBe(true);
+  expect((await lastWritten(page)).startsWith('﻿Risk,Why,Sell,Owned,Relic,')).toBe(true);
 
   // Save the plan, start over, load it back.
   await page.getByTestId('rsp-save').click();
@@ -109,11 +113,11 @@ test('plans what to sell, saves and reloads the plan, seeds from builds', async 
   await expect(page.getByTestId('rsp-status')).toContainText('plan.rsp · 1 group(s), 1 need(s)');
   await expect(page.getByTestId('sell-summary')).toContainText('2 kept');
 
-  // Seed from the save's build: a group named after it appears.
-  await page.getByTestId('tab-seed').click();
+  // Protect the save's build (Groups tab): a group named after it appears.
+  await page.getByTestId('tab-groups').click();
+  await page.getByTestId('seed').locator('summary').click();
   await page.getByTestId('seed-build').first().check();
   await page.getByTestId('seed-import').click();
   await expect(page.getByTestId('seed-message')).toContainText('Imported 1 build(s)');
-  await page.getByTestId('tab-groups').click();
   await expect(page.getByTestId('group-name').nth(1)).toHaveValue('Magic (Wylder)');
 });

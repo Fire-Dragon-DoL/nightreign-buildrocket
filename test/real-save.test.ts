@@ -121,6 +121,7 @@ describe.skipIf(!savePath)('real save file', async () => {
       const empty = planSell(pool, emptyConfig());
       const listed = (p: ReturnType<typeof planSell>) =>
         p.sell.reduce((n, e) => n + e.count, 0) +
+        p.short.reduce((n, e) => n + e.count, 0) +
         p.kept.reduce((n, k) => n + k.count, 0) +
         p.unsellable;
       expect(listed(empty)).toBe(pool.length);
@@ -141,9 +142,14 @@ describe.skipIf(!savePath)('real save file', async () => {
       const plan = planSell(pool, config);
       expect(performance.now() - start).toBeLessThan(5000);
       expect(listed(plan)).toBe(pool.length);
-      const risks = plan.sell.map((e) => e.risk);
-      expect(risks).toEqual([...risks].sort((a, b) => a - b));
-      for (const r of risks) expect(r).toBeLessThan(100);
+      // Every suggestion says why; reasons come in order (nothing wanted, covered, spares, review).
+      const rank = { unwanted: 0, covered: 1, spares: 2, review: 3 };
+      const order = plan.sell.map((e) => rank[e.verdict]);
+      expect(order).toEqual([...order].sort((a, b) => a - b));
+      for (const e of plan.sell) {
+        expect(e.why.length).toBeGreaterThan(0);
+        expect(e.risk).toBeLessThan(100);
+      }
       // Each build relic's effects (same color) are still on some relic that is kept.
       const left = new Map<string, number>();
       for (const spec of pool) left.set(specKey(spec), (left.get(specKey(spec)) ?? 0) + 1);

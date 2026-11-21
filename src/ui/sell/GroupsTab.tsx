@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { CharacterData } from '../../core/builds/characters.ts';
 import { type Need, RELIC_COLORS, type SellConfig } from '../../core/sell/config.ts';
 import type { EffectIndex } from '../../core/sell/effects.ts';
 import {
@@ -17,6 +18,7 @@ import {
   ImportanceSelect,
   ScopeSelect,
 } from './controls.tsx';
+import { SeedTab } from './SeedTab.tsx';
 
 interface Props {
   config: SellConfig;
@@ -25,7 +27,12 @@ interface Props {
 }
 
 /** Named groups of needs: rename, delete, add single effects and combos, curse tolerance. */
-export function GroupsTab({ config, update, index }: Props) {
+export function GroupsTab({
+  config,
+  update,
+  index,
+  character,
+}: Props & { character: CharacterData | undefined }) {
   return (
     <div className="groups-tab">
       <div className="toolbar">
@@ -45,6 +52,10 @@ export function GroupsTab({ config, update, index }: Props) {
           shows as "kept by" in the results.
         </span>
       </div>
+      <details className="build-picker" data-testid="seed">
+        <summary>Protect relics used in builds…</summary>
+        <SeedTab character={character} update={update} />
+      </details>
       {config.groups.length === 0 && (
         <p className="muted">
           No groups yet. Create one, set effects in the Normal / Deep tabs, or seed from builds.

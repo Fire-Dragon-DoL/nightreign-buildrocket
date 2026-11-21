@@ -94,7 +94,9 @@ describe('aliases (same effect in game, different id)', () => {
       groups: [{ name: 'Wylder', needs: [need(SKILL)] }],
     });
     expect(plan.needs[0]?.full).toBe(2);
-    expect(plan.sell[0]?.reason).toContain('exactly 1 left');
+    expect(plan.sell[0]?.why).toContainEqual(
+      expect.objectContaining({ kind: 'need', keep: 1, want: 1 }),
+    );
   });
 
   it('.rsp files and seeding store the effect, not the alias', () => {

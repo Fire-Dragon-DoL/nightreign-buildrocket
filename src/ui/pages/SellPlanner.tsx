@@ -25,18 +25,16 @@ import type { ConfigUpdate } from '../sell/configEdit.ts';
 import { EffectsTab, type OwnedCounts } from '../sell/EffectsTab.tsx';
 import { GroupsTab } from '../sell/GroupsTab.tsx';
 import { ResultsView } from '../sell/ResultsView.tsx';
-import { SeedTab } from '../sell/SeedTab.tsx';
 import { StackingTab } from '../sell/StackingTab.tsx';
 import { useLoadedFile } from '../useLoadedFile.ts';
 
-type Tab = 'results' | 'normal' | 'deep' | 'groups' | 'stacking' | 'seed';
+type Tab = 'results' | 'normal' | 'deep' | 'groups' | 'stacking';
 const TABS: { tab: Tab; label: string }[] = [
   { tab: 'results', label: 'Results' },
   { tab: 'normal', label: 'Normal effects' },
   { tab: 'deep', label: 'Deep of Night' },
   { tab: 'groups', label: 'Groups & combos' },
   { tab: 'stacking', label: 'Stacking' },
-  { tab: 'seed', label: 'Seed from builds' },
 ];
 
 type Run =
@@ -176,10 +174,11 @@ export function SellPlanner() {
       <p className="intro">
         Find relics you can sell. Load your <b>save</b> (or a builds JSON) and a <b>sell plan</b>{' '}
         (.rsp) saying what to keep, or build one here: give effects an importance and copies in the{' '}
-        <b>Normal</b> / <b>Deep of Night</b> tabs, add combos in <b>Groups</b>, or <b>seed</b> them
-        from your builds. Effects you don't configure are worth nothing. The results list every
-        sellable relic from safest (risk 0) to riskiest; selling everything above any line is safe
-        in the order shown. Save the plan to reuse it after your next runs.
+        <b>Normal</b> / <b>Deep of Night</b> tabs and add combos (effects wanted on the same relic)
+        in <b>Groups</b>. Effects you don't configure are worth nothing. A relic is suggested only
+        if everything your plan wants is still there without it, and each one says why: nothing on
+        it is wanted, a relic you keep covers it, or enough copies are left. Selling everything
+        above any line is safe in the order shown. Save the plan to reuse it after your next runs.
       </p>
       <section className="loaders loaders--pair">
         <FileSourcePicker source={source} label="Relics: save or builds JSON" testId="sell" />
@@ -297,11 +296,12 @@ export function SellPlanner() {
           owned={owned}
         />
       )}
-      {tab === 'groups' && <GroupsTab config={config} update={update} index={index} />}
+      {tab === 'groups' && (
+        <GroupsTab config={config} update={update} index={index} character={character} />
+      )}
       {tab === 'stacking' && (
         <StackingTab config={config} update={update} index={index} defaults={defaults} />
       )}
-      {tab === 'seed' && <SeedTab character={character} update={update} />}
     </>
   );
 }

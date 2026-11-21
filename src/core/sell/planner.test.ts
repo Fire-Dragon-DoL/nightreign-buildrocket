@@ -56,30 +56,109 @@ const effectNeed = (effect: number, extra: Partial<Need> = {}): Need =>
     ...extra,
   }) as Need;
 
-/** Every sold copy's risk in sell order (lines expanded). */
-const risks = (pool: RelicSpec[], cfg: SellConfig) =>
-  planSell(pool, cfg).sell.flatMap((line) => Array<number>(line.count).fill(line.risk));
-
-describe('planSell basics', () => {
-  it('everything not in the config is safe to sell, identical relics on one line', () => {
+describe('what can be sold, and why', () => {
+  it('relics with nothing wanted go first, identical ones on one line', () => {
     const r = relic(RED, [MAGIC_1]);
     const plan = planSell([r, r, r, relic(BLUE, [STR_1])], emptyConfig());
     expect(plan.sell).toHaveLength(2);
-    expect(plan.sell[0]).toMatchObject({
-      count: 3,
-      owned: 3,
-      risk: 0,
-      reason: 'Not wanted by your config',
-    });
+    expect(plan.sell[0]).toMatchObject({ count: 3, owned: 3, risk: 0, verdict: 'unwanted' });
+    expect(plan.sell[0]?.why).toEqual([{ kind: 'unwanted', effects: [MAGIC_1], ignored: [] }]);
+    expect(plan.sell[0]?.reason).toBe('Nothing on it is in your plan');
     expect(plan.kept).toEqual([]);
   });
 
-  it('sells spares first, then gets riskier as copies run out', () => {
+  it('says which effects the plan ignores on purpose', () => {
+    const plan = planSell(
+      [relic(RED, [STR_1, MAGIC_1])],
+      config([effectNeed(STR_1, { importance: 'ignore' })]),
+    );
+    expect(plan.sell[0]?.why[0]).toMatchObject({ kind: 'unwanted', ignored: [STR_1] });
+  });
+
+  it('sells a copy covered by an identical one, keeps what the plan needs', () => {
     const r = relic(RED, [MAGIC_2]);
-    const cfg = config([effectNeed(MAGIC_2, { copies: 2, importance: 'high' })]);
-    const order = risks([r, r, r], cfg);
-    expect(order).toEqual([35, 90, 90]);
-    expect(planSell([r, r, r], cfg).sell[0]?.reason).toContain('exactly 2 left after selling');
+    const plan = planSell(
+      [r, r, r],
+      config([effectNeed(MAGIC_2, { copies: 2, importance: 'high' })]),
+    );
+    expect(plan.sell).toHaveLength(1);
+    expect(plan.sell[0]).toMatchObject({ count: 1, verdict: 'covered' });
+    expect(plan.sell[0]?.why[0]).toMatchObject({
+      kind: 'covered',
+      by: r,
+      copies: 2,
+      permanent: false,
+    });
+    expect(plan.sell[0]?.why[1]).toMatchObject({ kind: 'need', keep: 2, want: 2, short: false });
+    expect(plan.kept[0]).toMatchObject({ count: 2 });
+    expect(plan.short).toEqual([]);
+  });
+
+  it('orders by reason: nothing wanted, covered, spares', () => {
+    const pool = [
+      relic(RED, [MAGIC_2, VIGOR_3]), // kept: covers the next one
+      relic(RED, [MAGIC_2]), // covered
+      relic(BLUE, [VIGOR_3]), // spare: Vigor counts in total, the red one has it
+      relic(BLUE, [STR_1]), // nothing wanted
+    ];
+    const plan = planSell(
+      pool,
+      config([
+        effectNeed(MAGIC_2, { importance: 'low', colorScope: 'perColor', colors: ['Red'] }),
+        effectNeed(VIGOR_3, { importance: 'low' }),
+      ]),
+    );
+    expect(plan.sell.map((e) => [e.spec.effects[0], e.verdict])).toEqual([
+      [STR_1, 'unwanted'],
+      [MAGIC_2, 'covered'],
+      [VIGOR_3, 'spares'],
+    ]);
+    expect(plan.sell[2]?.why[0]).toMatchObject({
+      kind: 'need',
+      label: 'Vigor +3',
+      keep: 1,
+      want: 1,
+    });
+  });
+
+  it('a cover is kept, so its reason stays true', () => {
+    const r = relic(RED, [MAGIC_2]);
+    const plan = planSell([r, r], config([effectNeed(MAGIC_2, { importance: 'low' })]));
+    expect(plan.sell).toHaveLength(1);
+    expect(plan.kept[0]?.reasons[0]).toBe('Covers 1 relic(s) in the sell list');
+  });
+
+  it('covers must have the same color', () => {
+    const plan = planSell(
+      [relic(RED, [MAGIC_2]), relic(BLUE, [MAGIC_2])],
+      config([effectNeed(MAGIC_2, { importance: 'low' })]),
+    );
+    expect(plan.sell[0]?.verdict).toBe('spares');
+  });
+
+  it('a unique relic is a permanent cover', () => {
+    const plan = planSell(
+      [relic(UNSELLABLE_RED, [MAGIC_2]), relic(RED, [MAGIC_2])],
+      config([effectNeed(MAGIC_2, { importance: 'mustKeep' })]),
+    );
+    expect(rollRules().isSellable(UNSELLABLE_RED)).toBe(false);
+    expect(plan.unsellable).toBe(1);
+    expect(plan.sell[0]?.spec.itemId).toBe(RED);
+    expect(plan.sell[0]?.why[0]).toMatchObject({ kind: 'covered', permanent: true });
+    expect(plan.sell[0]?.reason).toContain('unique, always kept');
+  });
+
+  it('relics leaving a Low or Normal need short are listed apart; High ones are kept', () => {
+    const normal = planSell([relic(RED, [MAGIC_2])], config([effectNeed(MAGIC_2)]));
+    expect(normal.sell).toEqual([]);
+    expect(normal.short[0]?.why[0]).toMatchObject({ kind: 'need', keep: 0, want: 1, short: true });
+    expect(normal.short[0]?.risk).toBe(75);
+    const high = planSell(
+      [relic(RED, [MAGIC_2])],
+      config([effectNeed(MAGIC_2, { importance: 'high' })]),
+    );
+    expect(high.short).toEqual([]);
+    expect(high.kept[0]?.reasons[0]).toContain('only 0 of 1 left without it');
   });
 
   it('counts per color', () => {
@@ -95,19 +174,11 @@ describe('planSell basics', () => {
   });
 
   it('a higher level counts fully toward a lower-level need', () => {
-    const cfg = config([effectNeed(MAGIC_1, { importance: 'mustKeep' })]);
-    const plan = planSell([relic(RED, [MAGIC_2])], cfg);
+    const plan = planSell(
+      [relic(RED, [MAGIC_2])],
+      config([effectNeed(MAGIC_1, { importance: 'mustKeep' })]),
+    );
     expect(plan.kept).toHaveLength(1);
-  });
-
-  it('unsellable relics never show up but count toward needs', () => {
-    const cfg = config([effectNeed(MAGIC_2, { importance: 'mustKeep' })]);
-    const plan = planSell([relic(UNSELLABLE_RED, [MAGIC_2]), relic(RED, [MAGIC_2])], cfg);
-    expect(rollRules().isSellable(UNSELLABLE_RED)).toBe(false);
-    expect(plan.unsellable).toBe(1);
-    expect(plan.sell).toHaveLength(1);
-    expect(plan.sell[0]?.spec.itemId).toBe(RED);
-    expect(plan.sell[0]?.risk).toBeLessThan(100);
   });
 
   it('the never-sell list protects relics by item id', () => {
@@ -127,13 +198,13 @@ describe('combos', () => {
     importance: 'mustKeep',
   };
 
-  it('a superset relic matches, partial matches are weaker backups sold first', () => {
+  it('a superset relic matches; partial ones are covered by it', () => {
     const full = relic(DEEP_RED, godroll, [ALL_RES_DOWN, HP_LOSS, SLEEP_BUILDUP]);
     const partial = relic(DEEP_RED, [FIRE_4, INCANT_2]);
     const plan = planSell([partial, full], config([combo]));
-    expect(plan.kept.map((k) => k.key)).toEqual([plan.kept[0]?.key]);
-    expect(plan.kept[0]?.spec).toEqual(full);
+    expect(plan.kept.map((k) => k.spec)).toEqual([full]);
     expect(plan.sell[0]?.spec).toEqual(partial);
+    expect(plan.sell[0]?.why[0]).toMatchObject({ kind: 'covered', by: full });
   });
 
   it('partial matches never add up to replace the real thing', () => {
@@ -141,8 +212,8 @@ describe('combos', () => {
     const partials = [1, 2, 3, 4, 5].map(() => relic(DEEP_RED, [FIRE_4]));
     const plan = planSell([full, ...partials], config([combo]));
     expect(plan.kept.map((k) => k.spec)).toEqual([full]);
-    // The target is met by the real relic, so partial backups are free to sell.
-    expect(plan.sell[0]).toMatchObject({ count: 5, risk: 0 });
+    expect(plan.sell[0]).toMatchObject({ count: 5, verdict: 'covered' });
+    expect(plan.sell[0]?.why[0]).toMatchObject({ kind: 'covered', by: full, copies: 1 });
   });
 
   it('subset: a two-effect combo matches a three-effect relic', () => {
@@ -151,11 +222,12 @@ describe('combos', () => {
     expect(plan.kept).toHaveLength(1);
   });
 
-  it('partial matches alone keep a short need covered a bit', () => {
+  it('a partial match alone keeps a short need covered a bit', () => {
     const plan = planSell([relic(DEEP_RED, [FIRE_4])], config([{ ...combo, importance: 'high' }]));
     expect(plan.needs[0]?.full).toBe(0);
     expect(plan.needs[0]?.coverage).toBeCloseTo(0.25);
-    expect(plan.sell[0]?.risk).toBeGreaterThan(40);
+    expect(plan.sell).toEqual([]);
+    expect(plan.kept).toHaveLength(1);
   });
 });
 
@@ -185,12 +257,14 @@ describe('curses', () => {
     expect(planSell([cursed], tolerant).kept).toHaveLength(1);
   });
 
-  it('curses are fine by default', () => {
-    const plan = planSell(
-      [relic(DEEP_RED, [MAGIC_4], [HP_LOSS])],
-      config([effectNeed(MAGIC_4, { importance: 'mustKeep' })]),
-    );
-    expect(plan.kept).toHaveLength(1);
+  it('annoying curses still count; the worse-cursed twin goes first', () => {
+    const clean = relic(DEEP_RED, [MAGIC_4]);
+    const cursed = relic(DEEP_RED, [MAGIC_4], [HP_LOSS]);
+    const cfg = config([effectNeed(MAGIC_4, { importance: 'mustKeep' })]);
+    cfg.effectRules.curseDefaults[HP_LOSS] = 'annoying';
+    const plan = planSell([clean, cursed], cfg);
+    expect(plan.sell[0]?.spec).toEqual(cursed);
+    expect(plan.sell[0]?.why[0]).toMatchObject({ kind: 'covered', by: clean });
   });
 });
 
@@ -198,7 +272,8 @@ describe('backups', () => {
   it('a lower level stands in for a missing higher one, weighted by strength', () => {
     const plan = planSell([relic(DEEP_RED, [MAGIC_3])], config([effectNeed(MAGIC_4)]));
     expect(plan.needs[0]?.coverage).toBeCloseTo(0.88, 2);
-    expect(plan.sell[0]?.reason).toContain('only 0 of 1 left');
+    expect(plan.short[0]?.reason).toBe('Build › Magic Attack Power Up +4: keep 0, want 1 — SHORT');
+    expect(plan.short[0]?.why[0]).toMatchObject({ kind: 'need', keep: 0, want: 1, short: true });
   });
 
   it('a backup only counts if it stacks with the copies already counted', () => {
@@ -210,8 +285,13 @@ describe('backups', () => {
     const plan = planSell(pool, config([effectNeed(STAMINA_1, { copies: 3 })]));
     // 1 full + one +0 backup (2/3: restores 2 vs 3 stamina); the second +0 adds nothing.
     expect(plan.needs[0]?.coverage).toBeCloseTo(1 + 2 / 3, 2);
-    expect(plan.sell[0]?.reason).toBe('Plenty of spares');
-    expect(plan.sell[0]?.risk).toBe(0);
+    // That second +0 can go, covered by the +1 relic (which is then kept); the last +0 would
+    // leave the need shorter.
+    expect(plan.sell).toHaveLength(1);
+    expect(plan.sell[0]?.spec.effects[0]).toBe(STAMINA_0);
+    expect(plan.sell[0]?.why[0]).toMatchObject({ kind: 'covered', by: pool[0] });
+    expect(plan.short.map((e) => e.spec.effects[0])).toEqual([STAMINA_0]);
+    expect(plan.kept[0]?.spec.effects[0]).toBe(STAMINA_1);
   });
 
   it('warns when more copies are wanted than can stack', () => {
@@ -221,7 +301,7 @@ describe('backups', () => {
 });
 
 describe('godroll heuristic', () => {
-  it('flags relics with several top-level effects the config ignores', () => {
+  it('flags relics whose every slot is at the top level of its family', () => {
     const index = buildEffectIndex();
     const roll = relic(RED, [VIGOR_3, STR_3, DEX_3]);
     expect(looksLikeGodroll(roll, index, emptyConfig())).toBe(true);
@@ -229,8 +309,13 @@ describe('godroll heuristic', () => {
     // Two top-level effects are not enough on a 3-slot relic, but are on a 2-slot one.
     expect(looksLikeGodroll(relic(RED, [VIGOR_3, STR_3, STR_1]), index, emptyConfig())).toBe(false);
     expect(looksLikeGodroll(relic(101, [VIGOR_3, STR_3]), index, emptyConfig())).toBe(true);
-    const plan = planSell([roll], emptyConfig());
-    expect(plan.sell[0]).toMatchObject({ risk: GODROLL_RISK, flags: ['godroll'] });
+  });
+
+  it('possible godrolls come last, for review', () => {
+    const roll = relic(RED, [VIGOR_3, STR_3, DEX_3]);
+    const plan = planSell([roll, relic(RED, [STR_1])], emptyConfig());
+    expect(plan.sell.map((e) => e.verdict)).toEqual(['unwanted', 'review']);
+    expect(plan.sell[1]).toMatchObject({ risk: GODROLL_RISK, flags: ['godroll'] });
   });
 
   it('effects ignored on purpose do not count, nor relics the config uses', () => {
@@ -242,9 +327,6 @@ describe('godroll heuristic', () => {
     ]);
     expect(looksLikeGodroll(roll, index, ignoring, new Set(['Vigor', 'Strength']))).toBe(false);
     expect(planSell([roll], ignoring).sell[0]?.flags).toEqual([]);
-    expect(planSell([roll], config([effectNeed(DEX_3, { copies: 0 })])).sell[0]?.risk).toBe(
-      GODROLL_RISK,
-    );
   });
 });
 

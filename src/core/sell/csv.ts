@@ -10,6 +10,7 @@ import type { SellPlan } from './planner.ts';
 
 const HEADER = [
   'Risk',
+  'Why',
   'Sell',
   'Owned',
   'Relic',
@@ -18,9 +19,16 @@ const HEADER = [
   'Deep',
   'Slots',
   ...[1, 2, 3].flatMap((n) => [`Effect ${n}`, `Effect ${n} ID`, `Curse ${n}`, `Curse ${n} ID`]),
-  'Why',
+  'Reason',
   'Flags',
 ];
+
+const VERDICTS = {
+  unwanted: 'nothing wanted',
+  covered: 'covered',
+  spares: 'spares left',
+  review: 'review (possible godroll)',
+} as const;
 
 const FLAG_LABELS = { godroll: 'possible godroll', stackingUnknown: 'stacking unknown' } as const;
 
@@ -41,6 +49,7 @@ export function sellPlanToCsv(plan: SellPlan): string {
     });
     return [
       entry.risk,
+      VERDICTS[entry.verdict],
       entry.count,
       entry.owned,
       relicName(spec.itemId),

@@ -3,6 +3,7 @@ import { IMPORTANCE_LABELS } from '../../core/sell/config.ts';
 import type { SellPlan } from '../../core/sell/planner.ts';
 import type { SellSection } from '../../core/sell/sections.ts';
 import { RelicCell, RelicEffects } from '../components/RelicParts.tsx';
+import { WhyCell } from './WhyCell.tsx';
 
 interface Props {
   plan: SellPlan;
@@ -116,14 +117,16 @@ export function ResultsView({ plan, sections }: Props) {
                   <th>Relic</th>
                   <th>Effects</th>
                   <th>Sell</th>
-                  <th>Risk</th>
-                  <th>Safe because / kept by</th>
+                  <th title="A summary of the reason: 0 = nothing wanted, higher = thinner margin. It never decides the order.">
+                    Risk
+                  </th>
+                  <th>Why it's safe</th>
                   <th>Flags</th>
                 </tr>
               </thead>
               <tbody>
                 {entries.map((e) => (
-                  <tr key={`${e.key}#${e.risk}`} data-testid="sell-row">
+                  <tr key={`${e.key}#${e.verdict}#${e.risk}`} data-testid="sell-row">
                     <RelicCell relic={e.spec} />
                     <td>
                       <RelicEffects relic={e.spec} />
@@ -134,7 +137,9 @@ export function ResultsView({ plan, sections }: Props) {
                     <td>
                       <span className={`risk ${riskClass(e.risk)}`}>{e.risk}</span>
                     </td>
-                    <td>{e.reason}</td>
+                    <td className="why-cell">
+                      <WhyCell verdict={e.verdict} why={e.why} />
+                    </td>
                     <td>
                       {e.flags.map((f) => (
                         <span key={f} className={`flag flag--${f}`}>
@@ -149,6 +154,49 @@ export function ResultsView({ plan, sections }: Props) {
           </article>
         );
       })}
+
+      {plan.short.length > 0 && (
+        <details className="build-picker" data-testid="short">
+          <summary>
+            Would leave you short: {plan.short.reduce((n, e) => n + e.count, 0)} relic(s) — only if
+            you accept going below what a Low or Normal need wants
+          </summary>
+          <p className="muted">
+            Not part of the list above. Each one is judged on its own, after everything above is
+            sold: selling two of these can leave you shorter than either line says.
+          </p>
+          <table className="build__relics">
+            <thead>
+              <tr>
+                <th>Relic</th>
+                <th>Effects</th>
+                <th>Copies</th>
+                <th>What it would leave short</th>
+                <th>Risk</th>
+              </tr>
+            </thead>
+            <tbody>
+              {plan.short.map((e) => (
+                <tr key={`${e.key}#${e.risk}`} data-testid="short-row">
+                  <RelicCell relic={e.spec} />
+                  <td>
+                    <RelicEffects relic={e.spec} />
+                  </td>
+                  <td className="missing__copies">
+                    {e.count} of {e.owned}
+                  </td>
+                  <td className="why-cell">
+                    <WhyCell verdict={null} why={e.why} />
+                  </td>
+                  <td>
+                    <span className={`risk ${riskClass(e.risk)}`}>{e.risk}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </details>
+      )}
 
       {plan.kept.length > 0 && (
         <details className="build-picker" data-testid="kept">
