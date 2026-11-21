@@ -233,9 +233,17 @@ def read_texts(msg: Path, kraken: 'Kraken') -> dict[str, dict[int, str]]:
 
 
 def best_fmg(texts: dict[str, dict[int, str]], ids: set[int]) -> tuple[str | None, dict[int, str]]:
-    """The FMG naming most of `ids` (the game keeps effect names in one, filter names in another)."""
+    """The text file naming most of `ids` (the game keeps effect names in one, filter names in another),
+    merged with its other parts: DLC text lives in files like AttachEffectName_dlc01.fmg."""
     best = max(texts.items(), key=lambda kv: len(ids & kv[1].keys()), default=(None, {}))
-    return best if ids & best[1].keys() else (None, {})
+    if not ids & best[1].keys():
+        return None, {}
+    stem = re.sub(r'(_dlc\d+)?\.fmg$', '', best[0], flags=re.I)
+    parts = sorted(n for n in texts if re.sub(r'(_dlc\d+)?\.fmg$', '', n, flags=re.I) == stem)
+    merged: dict[int, str] = {}
+    for name in parts:  # base first, DLC files after (they win)
+        merged.update(texts[name])
+    return ' + '.join(parts), merged
 
 
 # --- Effect details --------------------------------------------------------------------------------
