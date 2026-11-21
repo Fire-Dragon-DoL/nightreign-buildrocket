@@ -269,7 +269,13 @@ def behavior_key(row: dict) -> str:
 def build_effect_details(params: dict, allowlist: dict, texts: dict[str, dict[int, str]]) -> dict:
     """Official names, heroes, levels, search filters and aliases of every effect a relic can carry."""
     effects, filters = params['AttachEffectParam'], params.get('AttachEffectFilterParam', {})
-    pools = allowlist['pools']
+    # Pools real relics reach. Relic ids below 100 are placeholders ("Antique") whose tables hold
+    # weapon passives, not relic effects.
+    pool_of = lambda t: allowlist['pools'][allowlist['tables'][str(t)]] if str(t) in allowlist['tables'] else []
+    deep = allowlist['deep_pools']
+    tables = {t for rid, ts in allowlist['relics'].items() if int(rid) >= 100 for t in ts}
+    tables |= {deep['needs_curse'], deep['curses'], *deep['other']}
+    pools = [pool_of(t) for t in tables]
     used = sorted({e for pool in pools for e in pool if e in effects})
     # Rolls on random relics = in a pool with a choice; else only fixed on unique relics.
     rolls = {e for pool in pools if len(pool) > 1 for e in pool}

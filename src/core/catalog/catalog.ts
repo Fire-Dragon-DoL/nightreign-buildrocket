@@ -105,6 +105,9 @@ const CONFIRMED_ALIASES: Record<number, number> = {
   10001: 7032200, // Taking attacks improves attack power (+7032201, +9762)
 };
 
+/** Lowest real relic id: rows below are placeholders ("Antique") carrying weapon passive tables. */
+export const FIRST_REAL_RELIC = 100;
+
 const HERO_IDS: Record<string, number> = Object.fromEntries(
   Object.entries(HEROES).map(([id, name]) => [name, Number(id)]),
 );
@@ -137,15 +140,26 @@ export function buildCatalog(
     });
   }
   // Which effects relics can carry, and which roll on random relics (from the game's tables).
+  // Only real relics count: ids below 100 are placeholder rows ("Antique") whose tables hold
+  // weapon passives, not relic effects.
+  const poolOf = (table: number) => rules.pools[rules.tables[String(table)] ?? -1] ?? [];
   const used = new Set<number>();
   const rolls = new Set<number>();
-  for (const pool of rules.pools) {
+  const reachable = [
+    ...Object.entries(rules.relics)
+      .filter(([id]) => Number(id) >= FIRST_REAL_RELIC)
+      .flatMap(([, tables]) => tables),
+    rules.deep_pools.needs_curse,
+    ...rules.deep_pools.other,
+    rules.deep_pools.curses,
+  ];
+  for (const table of new Set(reachable)) {
+    const pool = poolOf(table);
     for (const id of pool) {
       used.add(id);
       if (pool.length > 1) rolls.add(id);
     }
   }
-  const poolOf = (table: number) => rules.pools[rules.tables[String(table)] ?? -1] ?? [];
   const curses = new Set(poolOf(rules.deep_pools.curses));
   const deep = new Set([rules.deep_pools.needs_curse, ...rules.deep_pools.other].flatMap(poolOf));
 

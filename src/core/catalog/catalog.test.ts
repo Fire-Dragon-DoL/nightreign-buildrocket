@@ -88,9 +88,19 @@ describe('official effect data (data/game/effect_details.json)', () => {
     expect(catalog().effect(6610400)?.name).toBe('Increased Maximum HP (Deep of Night)');
     expect(catalog().effect(6610600)?.name).toBe('Increased Maximum Stamina (Deep of Night)');
     // The whole deep family is labelled, before the level.
-    expect(catalog().effect(6611201)?.name).toBe('Improved Sorceries (Deep of Night) +1');
+    expect(catalog().effect(6611101)?.name).toBe(
+      'Improved Affinity Damage Negation (Deep of Night) +1',
+    );
+    // Only weapon passives shared the name: no label needed.
+    expect(catalog().effect(6611201)?.name).toBe('Improved Sorceries +1');
     // Families split by level only (normal +0..+2, deep +3/+4) keep their names.
     expect(catalog().effect(6001500)?.name).toBe('Magic Attack Power Up +3');
+  });
+
+  it('weapon passives on placeholder relics (ids below 100) are not relic effects', () => {
+    expect(catalog().effect(8540000)?.used ?? false).toBe(false); // weapon "Continuous HP Recovery"
+    expect(catalog().effect(7001100)?.used).toBe(true); // the relic one
+    expect(catalog().effect(7170100)?.used).toBe(true); // unique-only relic effect, still listed
   });
 
   it('knows the in-game search filter of each effect', () => {
