@@ -93,6 +93,11 @@ reusable modules:
 - The project is AGPL-3.0 (`LICENSE`). Dependencies and bundled data must be
   AGPL-compatible (MIT, BSD, Apache-2.0, LGPL, GPL-3.0, AGPL-3.0 are fine);
   check the license before adding any.
+- If something we need is only available under an incompatible license, or
+  must not be published, look for a compatible alternative first (another
+  source, or generating it ourselves from the game's files). Changing the
+  project's license or making the repository private are acceptable to the
+  owner, but only as a last resort: propose them and let the owner decide.
 - Game data lives in `data/game/` (see its README) and is committed.
   `relic_effects.json` (names) keeps its license file `relic_effects.LICENSE`
   next to it. `relic_effects_allowlist.json` and `icons.json` are generated
