@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """
-Generate data/game/relic_effects_allowlist.json and data/game/icons.json from
-Elden Ring Nightreign's own game files.
+Generate data/game/relic_effects_allowlist.json, data/game/effect_details.json
+and data/game/icons.json from Elden Ring Nightreign's own game files.
 
     python3 tools/game-data/extract.py --regulation path/to/regulation.bin \
-        --menu path/to/unpacked/menu [--out data/game]
+        --menu path/to/unpacked/menu --msg path/to/unpacked/msg/engus [--out data/game]
 
 Inputs:
   regulation.bin  ELDEN RING NIGHTREIGN/Game/regulation.bin (no unpacking needed)
   menu/           the game's menu folder unpacked with UXM Selective Unpacker;
                   needs 00_solo_l.tpfbhd/.tpfbdt, 01_common_l.tpf.dcx and
                   01_common_l.sblytbnd.dcx
+  msg/engus/      the game's English text, unpacked with UXM (*.msgbnd.dcx):
+                  official effect and search filter names
 
 Needs the regulation key in the NR_REGULATION_KEY environment variable.
 Requirements: Python 3.10+, `pip install cryptography zstandard pillow`, and
@@ -29,6 +31,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import zlib
 from pathlib import Path
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -144,8 +147,18 @@ FIELDS = {
         'relicColor': (4, 'B'), 'isSalable': (6, 'B'), 'isDeepRelic': (7, 'B', 0), 'iconId': (28, 'i'),
         'table1': (16, 'i'), 'table2': (20, 'i'), 'table3': (24, 'i'),
     },
-    'AttachEffectParam': {  # 68-byte rows
-        'compatibilityId': (24, 'i'), 'statusIconId': (40, 'i'), 'overrideEffectId': (52, 'i'),
+    'AttachEffectParam': {  # 68-byte rows (layout: Smithbox's NR paramdef)
+        'onHitSpEffect': (0, 'i'),
+        'passiveSpEffectId_1': (12, 'i'), 'passiveSpEffectId_2': (16, 'i'), 'passiveSpEffectId_3': (20, 'i'),
+        'compatibilityId': (24, 'i'), 'attachTextId': (28, 'i'), 'isDebuff': (33, 'B'),
+        'allowHeroes': (37, 'H'),  # 10 bits: Wylder, Guardian, Ironeye, Duchess, Raider, Revenant,
+                                   # Recluse, Executor, Scholar, Undertaker
+        'statusIconId': (40, 'i'), 'overrideBaseEffectId': (44, 'i'), 'displayedModifierValue': (48, 'i'),
+        'overrideEffectId': (52, 'i'), 'attachFilterParamId': (56, 'i'), 'exclusivityId': (60, 'i'),
+        'permanentSpEffectId': (64, 'i'),
+    },
+    'AttachEffectFilterParam': {  # 20-byte rows: the in-game relic search filters
+        'filterTextId': (4, 'i'), 'attachEffectFilterCategory': (8, 'i'), 'filterValue': (12, 'i'),
     },
     'AttachEffectTableParam': {  # 12-byte rows; one table id spans many rows
         'attachEffectId': (4, 'i'), 'chanceWeight': (8, 'H'), 'chanceWeight_dlc': (10, 'h'),
@@ -167,6 +180,135 @@ def read_param(b: bytes, fields: dict) -> dict[int, list[dict]]:
             row[name] = (value >> bit[0]) & 1 if bit else value
         rows.setdefault(rid, []).append(row)
     return rows
+
+
+# --- Text (FMG) ----------------------------------------------------------------------------------
+
+def dcx_decompress(path: Path, kraken: 'Kraken') -> bytes:
+    """Payload of a DCX file, whatever its algorithm (KRAK, ZSTD or DFLT)."""
+    b = path.read_bytes()
+    if b[:4] != b'DCX\0':
+        raise ValueError(f'{path.name}: not a DCX file')
+    algo = b[0x28:0x2c]
+    size, csize = struct.unpack_from('>II', b, 0x1c)
+    payload = b[0x4c:0x4c + csize]
+    if algo == b'KRAK':
+        return kraken.decompress(path)
+    if algo == b'ZSTD':
+        return zstandard.ZstdDecompressor().decompress(payload, max_output_size=size)
+    if algo == b'DFLT':
+        return zlib.decompress(payload)
+    raise ValueError(f'{path.name}: unsupported DCX algorithm {algo!r}')
+
+
+def fmg_strings(b: bytes) -> dict[int, str]:
+    """{text id: string} of an Elden Ring style FMG (version 2, 64-bit offsets):
+    header 0x28 bytes (+0x0c group count, +0x18 u64 string offsets offset), then
+    groups of (offset index, first id, last id, pad); strings are UTF-16LE, offset 0 = none."""
+    if b[2] != 2:
+        raise ValueError(f'unsupported FMG version {b[2]}')
+    groups = struct.unpack_from('<i', b, 0x0c)[0]
+    offsets = u64(b, 0x18)
+    out = {}
+    for g in range(groups):
+        index, first, last, _ = struct.unpack_from('<iiii', b, 0x28 + g * 16)
+        for tid in range(first, last + 1):
+            so = u64(b, offsets + (index + tid - first) * 8)
+            if so:
+                text = utf16z(b, so)
+                if text and text != '%null%':
+                    out[tid] = text
+    return out
+
+
+def read_texts(msg: Path, kraken: 'Kraken') -> dict[str, dict[int, str]]:
+    """{fmg file name: {id: text}} from every *.msgbnd.dcx in msg (DLC files, read later, win)."""
+    texts: dict[str, dict[int, str]] = {}
+    for bnd_path in sorted(msg.glob('*.msgbnd.dcx')):
+        bnd = dcx_decompress(bnd_path, kraken)
+        for name, off, size in binder_entries(bnd, b'BND4'):
+            if name.endswith('.fmg'):
+                texts.setdefault(name, {}).update(fmg_strings(bnd[off:off + size]))
+    return texts
+
+
+def best_fmg(texts: dict[str, dict[int, str]], ids: set[int]) -> tuple[str | None, dict[int, str]]:
+    """The FMG naming most of `ids` (the game keeps effect names in one, filter names in another)."""
+    best = max(texts.items(), key=lambda kv: len(ids & kv[1].keys()), default=(None, {}))
+    return best if ids & best[1].keys() else (None, {})
+
+
+# --- Effect details --------------------------------------------------------------------------------
+
+HERO_BITS = ['Wylder', 'Guardian', 'Ironeye', 'Duchess', 'Raider', 'Revenant', 'Recluse',
+             'Executor', 'Scholar', 'Undertaker']
+
+
+SP_EFFECT_FIELDS = ('passiveSpEffectId_1', 'passiveSpEffectId_2', 'passiveSpEffectId_3',
+                    'onHitSpEffect', 'permanentSpEffectId')
+
+
+def behavior_key(row: dict) -> str:
+    """What an effect does: the SpEffects it applies (or, with none, its text). Equal keys = the same
+    effect, e.g. Wylder's +1 skill use on The Wylder's Earring and on random relics: the earring's copy
+    only exists so it can sit next to an effect the random one excludes."""
+    sp = [row[f] for f in SP_EFFECT_FIELDS]
+    if any(v > 0 for v in sp):
+        return 'sp:' + ','.join(map(str, sp))
+    return f"text:{row['attachTextId']}"
+
+
+def build_effect_details(params: dict, allowlist: dict, texts: dict[str, dict[int, str]]) -> dict:
+    """Official names, heroes, levels, search filters and aliases of every effect a relic can carry."""
+    effects, filters = params['AttachEffectParam'], params.get('AttachEffectFilterParam', {})
+    pools = allowlist['pools']
+    used = sorted({e for pool in pools for e in pool if e in effects})
+    # Rolls on random relics = in a pool with a choice; else only fixed on unique relics.
+    rolls = {e for pool in pools if len(pool) > 1 for e in pool}
+
+    rows = {e: effects[e][0] for e in used}
+    name_fmg, names = best_fmg(texts, {r['attachTextId'] for r in rows.values()})
+    used_filters = {r['attachFilterParamId'] for r in rows.values()} & filters.keys()
+    filter_fmg, filter_names = best_fmg(texts, {filters[f][0]['filterTextId'] for f in used_filters})
+
+    # Aliases: same behavior → one effect. The canonical id is one that rolls (else the lowest).
+    groups: dict[str, list[int]] = {}
+    for e in used:
+        groups.setdefault(behavior_key(rows[e]), []).append(e)
+    same = {}
+    for ids in groups.values():
+        if len(ids) < 2:
+            continue
+        canonical = min(ids, key=lambda e: (e not in rolls, e))
+        for e in ids:
+            if e != canonical:
+                same[e] = canonical
+
+    out = {}
+    for e in used:
+        r = rows[e]
+        heroes = [h for i, h in enumerate(HERO_BITS) if r['allowHeroes'] >> i & 1]
+        d = {
+            'name': names.get(r['attachTextId']),
+            'textId': r['attachTextId'],
+            'heroes': heroes if 0 < len(heroes) < len(HERO_BITS) else [],
+            'rolls': e in rolls,
+            'base': r['overrideBaseEffectId'],
+            'value': r['displayedModifierValue'],
+            'filter': r['attachFilterParamId'],
+            'debuff': bool(r['isDebuff']),
+            'spEffects': [r[f] for f in SP_EFFECT_FIELDS],
+        }
+        if e in same:
+            d['same'] = same[e]
+        out[str(e)] = d
+    return {
+        'sources': {'names': name_fmg, 'filters': filter_fmg},
+        'effects': out,
+        'filters': {str(f): {'name': filter_names.get(filters[f][0]['filterTextId']),
+                             'category': filters[f][0]['attachEffectFilterCategory']}
+                    for f in sorted(used_filters)},
+    }
 
 
 # --- Roll rules ----------------------------------------------------------------------------------
@@ -313,6 +455,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--regulation', type=Path, required=True)
     ap.add_argument('--menu', type=Path, help='unpacked menu folder; icons are skipped without it')
+    ap.add_argument('--msg', type=Path, help='unpacked msg/engus folder; official names are skipped without it')
     ap.add_argument('--out', type=Path, default=Path('data/game'))
     args = ap.parse_args()
 
@@ -327,6 +470,24 @@ def main() -> None:
     # Sanity check for a human: the unsellable list should be unique/quest relics, not random ones.
     sample = sorted({names['relics'][str(r)]['name'] for r in allowlist['unsellable']})
     print(f"  unsellable, e.g.: {', '.join(sample[:12])}{' …' if len(sample) > 12 else ''}")
+
+    with tempfile.TemporaryDirectory() as tmp:
+        texts = read_texts(args.msg, Kraken(Path(tmp))) if args.msg else {}
+    details = build_effect_details(params, allowlist, texts)
+    (args.out / 'effect_details.json').write_text(json.dumps(details, indent=1, ensure_ascii=False) + '\n',
+                                                 encoding='utf-8')
+    effects = details['effects']
+    named = sum(1 for d in effects.values() if d['name'])
+    print(f"effect_details.json: {len(effects)} effects ({named} named from {details['sources']['names']}), "
+          f"{len(details['filters'])} search filters (names from {details['sources']['filters']})")
+    if not args.msg:
+        print('  no --msg folder: official names left empty', file=sys.stderr)
+    # For a human: the aliases found (same behavior, different ids).
+    for e, d in effects.items():
+        if 'same' in d:
+            other = effects[str(d['same'])]
+            print(f"  alias {e} ({d['name'] or names['effects'].get(e, {}).get('name')}) = {d['same']} "
+                  f"({other['name'] or names['effects'].get(str(d['same']), {}).get('name')})")
 
     if args.menu:
         with tempfile.TemporaryDirectory() as tmp:

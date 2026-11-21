@@ -1,12 +1,13 @@
 # Game data extractor
 
-Generates `data/game/relic_effects_allowlist.json` and `data/game/icons.json`
-from your own copy of Elden Ring Nightreign. Run it after a game patch.
+Generates `data/game/relic_effects_allowlist.json`, `data/game/effect_details.json`
+and `data/game/icons.json` from your own copy of Elden Ring Nightreign. Run it
+after a game patch.
 
 ## What you need
 
 1. `ELDEN RING NIGHTREIGN\Game\regulation.bin` — copy it, nothing to unpack.
-2. The game's menu textures, unpacked with UXM (see
+2. The game's menu textures and English text, unpacked with UXM (see
    [Unpacking the menu textures](#unpacking-the-menu-textures) below).
 3. Python 3.10+ with `pip install cryptography zstandard pillow`.
 4. Rust (`cargo`): `dcxtool/` is built automatically on first run.
@@ -45,6 +46,11 @@ with [UXM Selective Unpacker](https://github.com/Nordgaren/UXM-Selective-Unpack/
    Pass the unpacked `menu` folder to `--menu`. The DLC files are optional:
    without them DLC relics and vessels get no icon.
 
+4. Also unpack the English text: every `*.msgbnd.dcx` file in `msg\engus\`
+   (at least `item.msgbnd.dcx` and `menu.msgbnd.dcx`, plus their `_dlc01`
+   versions if listed). Pass that `engus` folder to `--msg`. It gives the
+   official effect names and the in-game relic search filter names.
+
 ## The regulation key
 
 `regulation.bin` is encrypted with AES-256-CBC. The key is the same for every
@@ -70,11 +76,19 @@ does not decrypt the file (for example after a patch changes the key).
 ## Run
 
 ```sh
-python3 tools/game-data/extract.py --regulation path/to/regulation.bin --menu path/to/menu
+python3 tools/game-data/extract.py --regulation path/to/regulation.bin --menu path/to/menu \
+    --msg path/to/msg/engus
 ```
 
 It writes into `data/game/` (change with `--out`) and lists any icon whose
-texture it could not find. Without `--menu` only the roll rules are generated.
+texture it could not find. Without `--menu` no icons are generated; without
+`--msg` effect details are written without official names.
+
+It also prints every **alias** it found: two effect ids that apply the same
+SpEffects, so they are the same effect in game (for example Wylder's "+1
+additional Character Skill use" on The Wylder's Earring and on random relics;
+the earring's copy only exists so it can sit next to an effect the random one
+excludes). The app treats aliases as one effect. Check the list looks right.
 
 ## Formats
 
@@ -82,10 +96,14 @@ texture it could not find. Without `--menu` only the roll rules are generated.
   decrypting to a DCX container compressed with Zstandard, holding a BND4
   binder of `.param` files.
 - DCX: `"DCX\0"` header; big-endian sizes at 0x1C (uncompressed) and 0x20
-  (compressed); algorithm name at 0x28 (`ZSTD` or `KRAK`); payload at 0x4C.
+  (compressed); algorithm name at 0x28 (`ZSTD`, `KRAK` or `DFLT`); payload at 0x4C.
 - BND4 / BHF4 binders: entry table at 0x40, 0x24 bytes per entry (u64 size at
   +0x08, u32 data offset at +0x18, u32 UTF-16 name offset at +0x20). A BHF4
   (`.tpfbhd`) is the index of the data in the matching `.tpfbdt`.
+- FMG (text, inside `*.msgbnd.dcx` BND4 binders): version byte at 0x02 (2),
+  group count s32 at 0x0C, u64 string offset table at 0x18, groups from 0x28
+  (16 bytes: offset index, first id, last id, pad), UTF-16LE strings. The
+  extractor picks the FMG that names the most effects (and filters).
 - PARAM: row count u16 at 0x0A; row headers from 0x40, 24 bytes each (s32 id,
   pad, u64 data offset, u64 name offset). Only the needed fields are read, at
   the fixed offsets listed in `FIELDS` in `extract.py`.

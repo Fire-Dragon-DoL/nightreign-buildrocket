@@ -7,6 +7,7 @@ data (names, rules, artwork belong to FromSoftware).
 | --- | --- | --- |
 | `relic_effects.json` | relic, effect and vessel names and properties | MIT-licensed community data, see `relic_effects.LICENSE` (keep it next to the file) |
 | `relic_effects_allowlist.json` | which effects each relic can roll (roll rules) | generated from `regulation.bin` |
+| `effect_details.json` | official effect names, heroes, levels, search filters, aliases | generated from `regulation.bin` and the game's text |
 | `icons.json` | relic, effect and vessel icons as `data:` URLs | generated from the game's menu textures |
 
 The Sell Planner's stacking rules and effect strengths live in `data/sell/`.
@@ -32,6 +33,20 @@ Ids are game param row ids.
   `AttachEffectParam`. Two effects with the same compatibilityId (not -1)
   cannot be on one relic; `overrideEffectId` is the order the game stores effects in.
 - `legacy_tables`: tables only used by shop relics from before patch 1.03.
+
+## `effect_details.json`
+
+Every effect some relic can carry (ids from `AttachEffectParam`):
+
+- `effects[id].name`: official English name (`attachTextId` in the game's text), `null` without `--msg`.
+- `heroes`: heroes allowed to use it (`allowWylder…allowUndertaker`; empty = everyone).
+- `rolls`: true if it rolls on random relics, false if only fixed on unique relics.
+- `base`, `value`: `overrideBaseEffectId` and `displayedModifierValue` (levels, displayed strength).
+- `filter`: `attachFilterParamId`, the in-game relic search filter it falls under.
+- `spEffects`: passive SpEffect ids 1–3, on-hit SpEffect, permanent SpEffect: what it does.
+- `same`: present on an alias: the id of the effect it is identical to (same SpEffects).
+- `filters[id]`: search filter `name` and `category` (`AttachEffectFilterParam`).
+- `sources`: which text files the names came from.
 
 ## `icons.json`
 
