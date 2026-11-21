@@ -6,15 +6,44 @@ from your own copy of Elden Ring Nightreign. Run it after a game patch.
 ## What you need
 
 1. `ELDEN RING NIGHTREIGN\Game\regulation.bin` — copy it, nothing to unpack.
-2. The game's `menu` folder, unpacked with
-   [UXM Selective Unpacker](https://github.com/Nordgaren/UXM-Selective-Unpack/releases)
-   (set an output folder, select `menu`, press Unpack; never press Patch).
-   Only these files are read:
-   `00_solo_l.tpfbhd`, `00_solo_l.tpfbdt`, `01_common_l.tpf.dcx`, `01_common_l.sblytbnd.dcx`.
+2. The game's menu textures, unpacked with UXM (see
+   [Unpacking the menu textures](#unpacking-the-menu-textures) below).
 3. Python 3.10+ with `pip install cryptography zstandard pillow`.
 4. Rust (`cargo`): `dcxtool/` is built automatically on first run.
 5. The `regulation.bin` decryption key, in the `NR_REGULATION_KEY` environment
    variable (see below).
+
+## Unpacking the menu textures
+
+The icons live in the game's packed archives, so they must be unpacked first
+with [UXM Selective Unpacker](https://github.com/Nordgaren/UXM-Selective-Unpack/releases)
+(Windows).
+
+1. **Update UXM's file list first.** UXM only extracts files whose names are in
+   its list, and its last release predates The Forsaken Hollows DLC, so it
+   misses the DLC icons. Smithbox keeps an up-to-date list; download it over
+   UXM's. In PowerShell, from the UXM folder:
+
+   ```powershell
+   Copy-Item res\EldenRingNightreignDictionary.txt res\EldenRingNightreignDictionary.txt.bak
+   Invoke-WebRequest "https://raw.githubusercontent.com/vawser/Smithbox/main/src/Andre/Andre.Formats/Resources/EldenRingNightreignDictionary.txt" -OutFile res\EldenRingNightreignDictionary.txt
+   ```
+
+2. Start UXM, browse to `nightreign.exe`, and **set an output folder** so the
+   game folder is not touched.
+3. In **View Files** select these files (all in `menu\`), then press **Unpack**.
+   **Never press Patch**: a patched game cannot play online (UXM's Restore
+   button undoes it).
+
+   | Files                                                         | Content                         |
+   | ------------------------------------------------------------- | ------------------------------- |
+   | `00_solo_l.tpfbhd`, `00_solo_l.tpfbdt`                        | relic artwork                   |
+   | `01_common_l.tpf.dcx`, `01_common_l.sblytbnd.dcx`             | sprite sheets: vessels, effects |
+   | `20_solo_dlc01_l.tpfbhd`, `20_solo_dlc01_l.tpfbdt`            | DLC relic artwork               |
+   | `21_common_dlc01_l.tpf.dcx`, `21_common_dlc01_l.sblytbnd.dcx` | DLC sprite sheets               |
+
+   Pass the unpacked `menu` folder to `--menu`. The DLC files are optional:
+   without them DLC relics and vessels get no icon.
 
 ## The regulation key
 
@@ -61,11 +90,13 @@ texture it could not find. Without `--menu` only the roll rules are generated.
   pad, u64 data offset, u64 name offset). Only the needed fields are read, at
   the fixed offsets listed in `FIELDS` in `extract.py`.
 - Menu textures: Kraken (Oodle) compressed TPF texture packs holding BC7 DDS
-  images. `01_common_l` holds sprite sheets; `.sblytbnd` holds one
-  `<TextureAtlas>` XML layout per sheet giving each sprite's rectangle.
-  `00_solo_l` holds one `MENU_Knowledge_<id>` texture per item.
+  images. `01_common_l` (and `21_common_dlc01_l`) hold sprite sheets;
+  `.sblytbnd` holds one `<TextureAtlas>` XML layout per sheet giving each
+  sprite's rectangle. `00_solo_l` (and `20_solo_dlc01_l`) hold one
+  `MENU_Knowledge_<id>` texture per item. The DLC menu files are in the base
+  `Data` archives, not in `dlc01.bdt`.
 
 Format knowledge comes from the FromSoftware modding community
-(SoulsFormatsNEXT, Smithbox's param definitions); no code from those projects
+(SoulsFormatsNEXT, Smithbox's param definitions and file list); no code from those projects
 is used. Kraken decompression uses the MIT-licensed
 [oozextract](https://github.com/lvlvllvlvllvlvl/oozextract) crate.
