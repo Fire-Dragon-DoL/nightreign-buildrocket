@@ -62,6 +62,15 @@ reusable modules:
 - Platform support: new save platforms are a new `ContainerReader` producing
   entries in the PC decrypted layout (`src/core/save/container.ts`).
 
+## Game rules (verified by the owner)
+
+- One relic can be equipped in **several presets (builds) at once**: presets
+  share relics, they don't consume them.
+- A single build **cannot use the same relic twice**: two identical relics in
+  one build need two copies.
+- So the copies of a relic needed for a set of builds = the most copies any
+  **single** build uses (`core/compare/missing.ts`), never the sum.
+
 ## Code style
 
 - TypeScript strict (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`).
