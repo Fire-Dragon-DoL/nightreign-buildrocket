@@ -9,6 +9,10 @@ data (names, rules, artwork belong to FromSoftware).
 | `relic_effects_allowlist.json` | which effects each relic can roll (roll rules) | generated from `regulation.bin` |
 | `icons.json` | relic, effect and vessel icons as `data:` URLs | generated from the game's menu textures |
 
+The Sell Planner's stacking rules and effect strengths live in `data/sell/`.
+They are derived from the community relic effects spreadsheet (game version
+1.03.2 + DLC), credited in `tools/sell-rules/README.md`.
+
 Regenerate the generated files after a game patch with
 `tools/game-data/extract.py` (see `tools/game-data/README.md`).
 
