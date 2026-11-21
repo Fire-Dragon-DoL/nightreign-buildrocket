@@ -1,51 +1,14 @@
-import type { Build, RelicSpec } from '../../core/builds/builds.ts';
-import {
-  catalog,
-  effectName,
-  heroName,
-  RELIC_COLOR_NAMES,
-  type RelicColor,
-  relicName,
-  vesselName,
-} from '../../core/catalog/catalog.ts';
-import { effectIcon, relicIcon, vesselIcon } from '../icons.ts';
+import type { Build } from '../../core/builds/builds.ts';
+import { catalog, heroName, type RelicColor, vesselName } from '../../core/catalog/catalog.ts';
+import { vesselIcon } from '../icons.ts';
 import { GameIcon } from './GameIcon.tsx';
+import { colorClass, RelicCell, RelicEffects } from './RelicParts.tsx';
 
 const SLOT_LABELS = ['1', '2', '3', 'D1', 'D2', 'D3'];
-
-const colorClass = (color: RelicColor | undefined) =>
-  color === undefined ? 'unknown' : RELIC_COLOR_NAMES[color].toLowerCase();
 
 function slotColors(vesselId: number): (RelicColor | undefined)[] {
   const vessel = catalog().vessel(vesselId);
   return vessel ? [...vessel.slots, ...vessel.deepSlots] : [];
-}
-
-/** Effects stacked vertically (each curse right under its effect), so names never wrap. */
-function Effects({ relic }: { relic: RelicSpec }) {
-  return (
-    <ul className="effects">
-      {relic.effects.map((effect, i) => {
-        if (effect === null) return null;
-        const curse = relic.curses[i] ?? null;
-        return (
-          // biome-ignore lint/suspicious/noArrayIndexKey: effect rows are positional
-          <li key={i}>
-            <div className="named">
-              <GameIcon src={effectIcon(effect)} />
-              <span>{effectName(effect)}</span>
-            </div>
-            {curse !== null && (
-              <div className="named named--curse">
-                <GameIcon src={effectIcon(curse)} />
-                <span>{effectName(curse)}</span>
-              </div>
-            )}
-          </li>
-        );
-      })}
-    </ul>
-  );
 }
 
 function BuildCard({ build }: { build: Build }) {
@@ -61,7 +24,6 @@ function BuildCard({ build }: { build: Build }) {
       <table className="build__relics">
         <tbody>
           {build.relics.map((relic, slot) => {
-            const color = relic ? catalog().relic(relic.itemId)?.color : undefined;
             return (
               // biome-ignore lint/suspicious/noArrayIndexKey: relic slots are positional
               <tr key={slot}>
@@ -70,14 +32,9 @@ function BuildCard({ build }: { build: Build }) {
                 </td>
                 {relic ? (
                   <>
-                    <td className={`build__relic relic--${colorClass(color)}`}>
-                      <div className="named">
-                        <GameIcon src={relicIcon(relic.itemId)} size="lg" />
-                        <span>{relicName(relic.itemId)}</span>
-                      </div>
-                    </td>
+                    <RelicCell relic={relic} />
                     <td>
-                      <Effects relic={relic} />
+                      <RelicEffects relic={relic} />
                     </td>
                   </>
                 ) : (

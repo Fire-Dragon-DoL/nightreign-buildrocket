@@ -2,7 +2,9 @@
 // a Blob URL (falling back to a data: URL), which is what lets it run when
 // the app is opened over file://, where loading a worker script file is blocked.
 
-import type { SaveFile } from '../core/save/types.ts';
+import type { Build, RelicSpec } from '../core/builds/builds.ts';
+import type { LoadedFile } from '../core/builds/load-file.ts';
+import type { MissingRelicsResult } from '../core/compare/missing.ts';
 import type { WorkerRequest, WorkerResponse } from './protocol.ts';
 import SaveWorker from './save-worker.ts?worker&inline';
 
@@ -13,27 +15,39 @@ export class WorkerError extends Error {
   }
 }
 
-export interface ParseResult {
-  save: SaveFile;
-  ms: number;
+export type Progress = (done: number, total: number) => void;
+
+/** Any response except progress: it settles the request. */
+type Final = Exclude<WorkerResponse, { type: 'progress' }>;
+type Success<K extends WorkerRequest['type']> = Extract<Final, { ok: true; type: K }>;
+
+interface Pending {
+  resolve: (r: Final) => void;
+  reject: (e: Error) => void;
+  onProgress: Progress | undefined;
 }
+
+/** A request before it gets its id (distributes over the union). */
+type NewRequest<R = WorkerRequest> = R extends WorkerRequest ? Omit<R, 'id'> : never;
 
 /** Promise-based wrapper around the save worker. One worker, many requests. */
 export class SaveWorkerClient {
   #worker: Worker | undefined;
   #nextId = 1;
-  #pending = new Map<
-    number,
-    { resolve: (r: WorkerResponse) => void; reject: (e: Error) => void }
-  >();
+  #pending = new Map<number, Pending>();
 
   #getWorker(): Worker {
     if (!this.#worker) {
       const worker = new SaveWorker();
       worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
-        const pending = this.#pending.get(event.data.id);
-        this.#pending.delete(event.data.id);
-        pending?.resolve(event.data);
+        const message = event.data;
+        const pending = this.#pending.get(message.id);
+        if (message.ok && message.type === 'progress') {
+          pending?.onProgress?.(message.done, message.total);
+          return;
+        }
+        this.#pending.delete(message.id);
+        pending?.resolve(message);
       };
       worker.onerror = (event) => {
         const error = new Error(event.message || 'Worker crashed');
@@ -46,19 +60,37 @@ export class SaveWorkerClient {
     return this.#worker;
   }
 
-  /**
-   * Parse a save in the worker. The buffer is transferred (not copied), so
-   * the caller must not use it afterwards.
-   */
-  async parseSave(bytes: ArrayBuffer): Promise<ParseResult> {
+  async #send<K extends WorkerRequest['type']>(
+    request: NewRequest & { type: K },
+    transfer: Transferable[] = [],
+    onProgress?: Progress,
+  ): Promise<Success<K>> {
     const id = this.#nextId++;
-    const request: WorkerRequest = { id, type: 'parseSave', bytes };
-    const response = await new Promise<WorkerResponse>((resolve, reject) => {
-      this.#pending.set(id, { resolve, reject });
-      this.#getWorker().postMessage(request, [bytes]);
+    const response = await new Promise<Final>((resolve, reject) => {
+      this.#pending.set(id, { resolve, reject, onProgress });
+      this.#getWorker().postMessage({ ...request, id } as WorkerRequest, transfer);
     });
     if (!response.ok) throw new WorkerError(response.error.name, response.error.message);
-    return { save: response.save, ms: response.ms };
+    return response as Success<K>;
+  }
+
+  /**
+   * Read a save or a builds JSON in the worker. The buffer is transferred
+   * (not copied), so the caller must not use it afterwards.
+   */
+  async loadFile(bytes: ArrayBuffer): Promise<{ file: LoadedFile; ms: number }> {
+    const { file, ms } = await this.#send({ type: 'loadFile', bytes }, [bytes]);
+    return { file, ms };
+  }
+
+  /** Which relics `pool` lacks to make `builds` (see core/compare). */
+  async findMissing(
+    builds: Build[],
+    pool: RelicSpec[],
+    onProgress?: Progress,
+  ): Promise<{ result: MissingRelicsResult; ms: number }> {
+    const { result, ms } = await this.#send({ type: 'findMissing', builds, pool }, [], onProgress);
+    return { result, ms };
   }
 
   terminate(): void {

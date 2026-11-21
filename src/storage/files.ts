@@ -10,6 +10,11 @@ export const JSON_FILE_TYPE: FilePickerAcceptType = {
   accept: { 'application/json': ['.json'] },
 };
 
+export const CSV_FILE_TYPE: FilePickerAcceptType = {
+  description: 'CSV (spreadsheet)',
+  accept: { 'text/csv': ['.csv'] },
+};
+
 export function isAbortError(err: unknown): boolean {
   return err instanceof DOMException && err.name === 'AbortError';
 }
@@ -29,7 +34,7 @@ export async function saveTextFile(
     await writeTextFile(handle, contents);
     return handle;
   }
-  downloadText(contents, suggestedName);
+  downloadText(contents, suggestedName, Object.keys(type.accept)[0] ?? 'text/plain');
   return undefined;
 }
 
@@ -50,8 +55,8 @@ export async function ensureWritable(handle: FileSystemFileHandle): Promise<bool
   return (await handle.requestPermission(mode)) === 'granted';
 }
 
-function downloadText(contents: string, name: string): void {
-  const url = URL.createObjectURL(new Blob([contents], { type: 'application/json' }));
+function downloadText(contents: string, name: string, mime: string): void {
+  const url = URL.createObjectURL(new Blob([contents], { type: mime }));
   const a = document.createElement('a');
   a.href = url;
   a.download = name;

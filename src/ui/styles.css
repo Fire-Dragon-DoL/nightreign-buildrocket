@@ -288,3 +288,141 @@ select {
   width: 64px;
   height: 64px;
 }
+
+/* --- Menu and pages ---------------------------------------------------- */
+
+.menu {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.menu__item {
+  padding: 0.3rem 0.75rem;
+  border-radius: var(--radius);
+  color: var(--text);
+  text-decoration: none;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+a.menu__item:hover {
+  border-color: var(--line);
+}
+
+.menu__item[aria-current="page"] {
+  background: var(--panel-2);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.menu__item[aria-disabled="true"] {
+  color: var(--muted);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.page {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.page[hidden] {
+  display: none;
+}
+
+.file-source {
+  display: grid;
+  gap: 0.4rem;
+  align-content: start;
+  min-width: 0;
+}
+
+.loaders--pair {
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+}
+
+.progress {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.progress progress {
+  flex: 1;
+  max-width: 480px;
+  accent-color: var(--accent);
+}
+
+.warning {
+  margin: 0;
+  color: var(--yellow);
+}
+
+button.button--quiet {
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  padding: 0.15rem 0.6rem;
+}
+
+/* --- Missing relics ---------------------------------------------------- */
+
+.build-picker {
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
+}
+
+.build-picker summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.build-picker__actions {
+  display: flex;
+  gap: 0.4rem;
+  margin: 0.5rem 0;
+}
+
+.build-picker__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 1.25rem;
+}
+
+.build-picker__item {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.missing {
+  width: 100%;
+}
+
+.build__relics th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 0.2rem 0.5rem 0.4rem;
+}
+
+.missing__copies {
+  white-space: nowrap;
+}
+
+.missing__builds {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.missing__builds .build__name {
+  font-size: 1rem;
+}
