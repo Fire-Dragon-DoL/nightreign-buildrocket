@@ -1,7 +1,7 @@
 {
  "sources": {
-  "names": "AttachEffectName.fmg",
-  "filters": "AttachEffectName.fmg"
+  "names": "AttachEffectName.fmg + AttachEffectName_dlc01.fmg",
+  "filters": "AttachEffectName.fmg + AttachEffectName_dlc01.fmg"
  },
  "effects": {
   "10000": {
@@ -155,7 +155,7 @@
    "same": 7032900
   },
   "19001": {
-   "name": null,
+   "name": "[Scholar] Allies targeted by Character Skill gain boosted attack",
    "textId": 7036300,
    "heroes": [
     "Scholar"
@@ -1331,7 +1331,7 @@
    ]
   },
   "6500800": {
-   "name": null,
+   "name": "[Scholar] Reduced FP consumption when using Character Skill on self",
    "textId": 6500800,
    "heroes": [
     "Scholar"
@@ -1350,7 +1350,7 @@
    ]
   },
   "6500900": {
-   "name": null,
+   "name": "[Undertaker] Executing Art readies Character Skill",
    "textId": 6500900,
    "heroes": [
     "Undertaker"
@@ -2134,7 +2134,7 @@
    ]
   },
   "6623200": {
-   "name": null,
+   "name": "Greenspill Crystal Tear in possession at start of expedition",
    "textId": 6623200,
    "heroes": [],
    "rolls": true,
@@ -3118,7 +3118,7 @@
    ]
   },
   "6647200": {
-   "name": null,
+   "name": "[Scholar] Improved Mind, Reduced Vigor",
    "textId": 6647200,
    "heroes": [
     "Scholar"
@@ -3137,7 +3137,7 @@
    ]
   },
   "6647300": {
-   "name": null,
+   "name": "[Scholar] Improved Endurance and Dexterity, Reduced Intelligence and Arcane",
    "textId": 6647300,
    "heroes": [
     "Scholar"
@@ -3156,7 +3156,7 @@
    ]
   },
   "6647400": {
-   "name": null,
+   "name": "[Undertaker] Improved Dexterity, Reduced Vigor and Faith",
    "textId": 6647400,
    "heroes": [
     "Undertaker"
@@ -3175,7 +3175,7 @@
    ]
   },
   "6647500": {
-   "name": null,
+   "name": "[Undertaker] Improved Mind and Faith, Reduced Strength",
    "textId": 6647500,
    "heroes": [
     "Undertaker"
@@ -4829,7 +4829,7 @@
    ]
   },
   "7006500": {
-   "name": null,
+   "name": "Continuous FP Recovery",
    "textId": 7006500,
    "heroes": [],
    "rolls": false,
@@ -4846,7 +4846,7 @@
    ]
   },
   "7006600": {
-   "name": null,
+   "name": "Improved Melee Attack Power",
    "textId": 7006600,
    "heroes": [],
    "rolls": false,
@@ -4863,7 +4863,7 @@
    ]
   },
   "7006700": {
-   "name": null,
+   "name": "Improved Skill Attack Power",
    "textId": 7006700,
    "heroes": [],
    "rolls": false,
@@ -5676,7 +5676,7 @@
    ]
   },
   "7036200": {
-   "name": null,
+   "name": "[Scholar] Prevent slowing of Character Skill progress",
    "textId": 7036200,
    "heroes": [
     "Scholar"
@@ -5695,7 +5695,7 @@
    ]
   },
   "7036300": {
-   "name": null,
+   "name": "[Scholar] Allies targeted by Character Skill gain boosted attack",
    "textId": 7036300,
    "heroes": [
     "Scholar"
@@ -5714,7 +5714,7 @@
    ]
   },
   "7036400": {
-   "name": null,
+   "name": "[Scholar] Continuous damage inflicted on targets threaded by Ultimate Art",
    "textId": 7036400,
    "heroes": [
     "Scholar"
@@ -5733,7 +5733,7 @@
    ]
   },
   "7036500": {
-   "name": null,
+   "name": "[Scholar] Earn runes for each additional specimen acquired with Character Skill",
    "textId": 7036500,
    "heroes": [
     "Scholar"
@@ -5752,7 +5752,7 @@
    ]
   },
   "7036800": {
-   "name": null,
+   "name": "[Undertaker] Activating Ultimate Art increases attack power",
    "textId": 7036800,
    "heroes": [
     "Undertaker"
@@ -5771,7 +5771,7 @@
    ]
   },
   "7036900": {
-   "name": null,
+   "name": "[Undertaker] Attack power increased by landing the final blow of a chain attack",
    "textId": 7036900,
    "heroes": [
     "Undertaker"
@@ -5790,7 +5790,7 @@
    ]
   },
   "7037000": {
-   "name": null,
+   "name": "[Undertaker] Physical attacks boosted while assist effect from incantation is active for self",
    "textId": 7037000,
    "heroes": [
     "Undertaker"
@@ -5809,7 +5809,7 @@
    ]
   },
   "7037300": {
-   "name": null,
+   "name": "[Undertaker] Contact with allies restores their HP while Ultimate Art is activated",
    "textId": 7037300,
    "heroes": [
     "Undertaker"
@@ -5845,7 +5845,7 @@
    ]
   },
   "7037700": {
-   "name": null,
+   "name": "Status Ailment Gauges Slowly Increase Attack Power",
    "textId": 7037700,
    "heroes": [],
    "rolls": false,
@@ -5862,7 +5862,7 @@
    ]
   },
   "7037800": {
-   "name": null,
+   "name": "Occasionally Nullify Attacks When Damage Negation is Lowered",
    "textId": 7037800,
    "heroes": [],
    "rolls": false,
@@ -8043,7 +8043,7 @@
    ]
   },
   "7170100": {
-   "name": null,
+   "name": "Attacks Inflict Rot when Damage is Taken",
    "textId": 7170100,
    "heroes": [],
    "rolls": false,
@@ -8215,7 +8215,7 @@
    ]
   },
   "7260900": {
-   "name": null,
+   "name": "Rot in Vicinity Causes Continuous HP Recovery",
    "textId": 7260900,
    "heroes": [],
    "rolls": false,
@@ -9532,7 +9532,7 @@
    ]
   },
   "7360600": {
-   "name": null,
+   "name": "Changes compatible armament's sorcery to Magic Glintblade at start of expedition",
    "textId": 7360600,
    "heroes": [
     "Recluse"
@@ -9551,7 +9551,7 @@
    ]
   },
   "7360900": {
-   "name": null,
+   "name": "Changes compatible armament's sorcery to Carian Greatsword at start of expedition",
    "textId": 7360900,
    "heroes": [
     "Recluse"
@@ -9570,7 +9570,7 @@
    ]
   },
   "7361200": {
-   "name": null,
+   "name": "Changes compatible armament's sorcery to Night Shard at start of expedition",
    "textId": 7361200,
    "heroes": [
     "Recluse"
@@ -9589,7 +9589,7 @@
    ]
   },
   "7361300": {
-   "name": null,
+   "name": "Changes compatible armament's sorcery to Magma Shot at start of expedition",
    "textId": 7361300,
    "heroes": [
     "Recluse"
@@ -9608,7 +9608,7 @@
    ]
   },
   "7362100": {
-   "name": null,
+   "name": "Changes compatible armament's sorcery to Briars of Punishment at start of expedition",
    "textId": 7362100,
    "heroes": [
     "Recluse"
@@ -9627,7 +9627,7 @@
    ]
   },
   "7370300": {
-   "name": null,
+   "name": "Changes compatible armament's incantation to Wrath of Gold at start of expedition",
    "textId": 7370300,
    "heroes": [
     "Revenant"
@@ -9646,7 +9646,7 @@
    ]
   },
   "7370400": {
-   "name": null,
+   "name": "Changes compatible armament's incantation to Lightning Spear at start of expedition",
    "textId": 7370400,
    "heroes": [
     "Revenant"
@@ -9665,7 +9665,7 @@
    ]
   },
   "7370600": {
-   "name": null,
+   "name": "Changes compatible armament's incantation to O, Flame! at start of expedition",
    "textId": 7370600,
    "heroes": [
     "Revenant"
@@ -9684,7 +9684,7 @@
    ]
   },
   "7370900": {
-   "name": null,
+   "name": "Changes compatible armament's incantation to Beast Claw at start of expedition",
    "textId": 7370900,
    "heroes": [
     "Revenant"
@@ -9703,7 +9703,7 @@
    ]
   },
   "7371500": {
-   "name": null,
+   "name": "Changes compatible armament's incantation to Dragonfire at start of expedition",
    "textId": 7371500,
    "heroes": [
     "Revenant"
@@ -10130,7 +10130,7 @@
    ]
   },
   "8320500": {
-   "name": null,
+   "name": "Improved Melee Attack Power",
    "textId": 8320500,
    "heroes": [],
    "rolls": true,
@@ -10147,7 +10147,7 @@
    ]
   },
   "8320600": {
-   "name": null,
+   "name": "Improved Dash Attacks",
    "textId": 8320600,
    "heroes": [],
    "rolls": true,
@@ -10164,7 +10164,7 @@
    ]
   },
   "8320700": {
-   "name": null,
+   "name": "Improved Rolling Attacks",
    "textId": 8320700,
    "heroes": [],
    "rolls": true,
@@ -11081,11 +11081,11 @@
    "category": 10070
   },
   "6500800": {
-   "name": null,
+   "name": "[Scholar] Reduced FP consumption when using Character Skill on self",
    "category": 10080
   },
   "6500900": {
-   "name": null,
+   "name": "[Undertaker] Executing Art readies Character Skill",
    "category": 10090
   },
   "6600000": {
@@ -11209,7 +11209,7 @@
    "category": 30120
   },
   "6623200": {
-   "name": null,
+   "name": "Greenspill Crystal Tear in possession at start of expedition",
    "category": 30120
   },
   "6624000": {
@@ -11429,19 +11429,19 @@
    "category": 10070
   },
   "6647200": {
-   "name": null,
+   "name": "[Scholar] Improved Mind, Reduced Vigor",
    "category": 10080
   },
   "6647300": {
-   "name": null,
+   "name": "[Scholar] Improved Endurance and Dexterity, Reduced Intelligence and Arcane",
    "category": 10080
   },
   "6647400": {
-   "name": null,
+   "name": "[Undertaker] Improved Dexterity, Reduced Vigor and Faith",
    "category": 10090
   },
   "6647500": {
-   "name": null,
+   "name": "[Undertaker] Improved Mind and Faith, Reduced Strength",
    "category": 10090
   },
   "6820000": {
@@ -11685,15 +11685,15 @@
    "category": 30030
   },
   "7006500": {
-   "name": null,
+   "name": "Continuous FP Recovery",
    "category": 30060
   },
   "7006600": {
-   "name": null,
+   "name": "Improved Melee Attack Power",
    "category": 30020
   },
   "7006700": {
-   "name": null,
+   "name": "Improved Skill Attack Power",
    "category": 30020
   },
   "7010200": {
@@ -11865,35 +11865,35 @@
    "category": 30060
   },
   "7036200": {
-   "name": null,
+   "name": "[Scholar] Prevent slowing of Character Skill progress",
    "category": 10080
   },
   "7036300": {
-   "name": null,
+   "name": "[Scholar] Allies targeted by Character Skill gain boosted attack",
    "category": 10080
   },
   "7036400": {
-   "name": null,
+   "name": "[Scholar] Continuous damage inflicted on targets threaded by Ultimate Art",
    "category": 10080
   },
   "7036500": {
-   "name": null,
+   "name": "[Scholar] Earn runes for each additional specimen acquired with Character Skill",
    "category": 10080
   },
   "7036800": {
-   "name": null,
+   "name": "[Undertaker] Activating Ultimate Art increases attack power",
    "category": 10090
   },
   "7036900": {
-   "name": null,
+   "name": "[Undertaker] Attack power increased by landing the final blow of a chain attack",
    "category": 10090
   },
   "7037000": {
-   "name": null,
+   "name": "[Undertaker] Physical attacks boosted while assist effect from incantation is active for self",
    "category": 10090
   },
   "7037300": {
-   "name": null,
+   "name": "[Undertaker] Contact with allies restores their HP while Ultimate Art is activated",
    "category": 10090
   },
   "7037600": {
@@ -11901,11 +11901,11 @@
    "category": 30020
   },
   "7037700": {
-   "name": null,
+   "name": "Status Ailment Gauges Slowly Increase Attack Power",
    "category": 30020
   },
   "7037800": {
-   "name": null,
+   "name": "Occasionally Nullify Attacks When Damage Negation is Lowered",
    "category": 30070
   },
   "7040000": {
@@ -12349,7 +12349,7 @@
    "category": 30060
   },
   "7170100": {
-   "name": null,
+   "name": "Attacks Inflict Rot when Damage is Taken",
    "category": 30070
   },
   "7220000": {
@@ -12389,7 +12389,7 @@
    "category": 30070
   },
   "7260900": {
-   "name": null,
+   "name": "Rot in Vicinity Causes Continuous HP Recovery",
    "category": 30060
   },
   "7270100": {
@@ -12697,43 +12697,43 @@
    "category": 20230
   },
   "7360600": {
-   "name": null,
+   "name": "Changes compatible armament's sorcery to Magic Glintblade at start of expedition",
    "category": 30100
   },
   "7360900": {
-   "name": null,
+   "name": "Changes compatible armament's sorcery to Carian Greatsword at start of expedition",
    "category": 30100
   },
   "7361200": {
-   "name": null,
+   "name": "Changes compatible armament's sorcery to Night Shard at start of expedition",
    "category": 30100
   },
   "7361300": {
-   "name": null,
+   "name": "Changes compatible armament's sorcery to Magma Shot at start of expedition",
    "category": 30100
   },
   "7362100": {
-   "name": null,
+   "name": "Changes compatible armament's sorcery to Briars of Punishment at start of expedition",
    "category": 30100
   },
   "7370300": {
-   "name": null,
+   "name": "Changes compatible armament's incantation to Wrath of Gold at start of expedition",
    "category": 30100
   },
   "7370400": {
-   "name": null,
+   "name": "Changes compatible armament's incantation to Lightning Spear at start of expedition",
    "category": 30100
   },
   "7370600": {
-   "name": null,
+   "name": "Changes compatible armament's incantation to O, Flame! at start of expedition",
    "category": 30100
   },
   "7370900": {
-   "name": null,
+   "name": "Changes compatible armament's incantation to Beast Claw at start of expedition",
    "category": 30100
   },
   "7371500": {
-   "name": null,
+   "name": "Changes compatible armament's incantation to Dragonfire at start of expedition",
    "category": 30100
   }
  }
