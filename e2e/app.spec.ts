@@ -183,4 +183,6 @@ test('shows game icons', async ({ page }) => {
   const icon = page.getByTestId('build').first().locator('img.icon').first();
   await expect(icon).toBeVisible();
   expect(await icon.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+  const relicIcon = page.getByTestId('build').first().locator('.build__relic img.icon');
+  expect(await relicIcon.evaluate((img) => img.getBoundingClientRect().width)).toBe(64);
 });

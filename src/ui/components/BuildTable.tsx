@@ -72,7 +72,7 @@ function BuildCard({ build }: { build: Build }) {
                   <>
                     <td className={`build__relic relic--${colorClass(color)}`}>
                       <div className="named">
-                        <GameIcon src={relicIcon(relic.itemId)} size="md" />
+                        <GameIcon src={relicIcon(relic.itemId)} size="lg" />
                         <span>{relicName(relic.itemId)}</span>
                       </div>
                     </td>

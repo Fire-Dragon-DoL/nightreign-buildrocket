@@ -1,6 +1,6 @@
 interface Props {
   src: string | undefined;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
 }
 
 /** A game icon, or nothing when icons are not available. */
