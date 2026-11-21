@@ -1,0 +1,84 @@
+import { describe, expect, it } from 'vitest';
+import type { EffectNeed, Need } from './config.ts';
+import { buildEffectIndex } from './effects.ts';
+import { defaultMinLevel, mergeNeeds, needKey, withDefaultLevels } from './needs.ts';
+
+const index = buildEffectIndex();
+
+const effect = (id: number, extra: Partial<EffectNeed> = {}): EffectNeed => ({
+  kind: 'effect',
+  effect: id,
+  copies: 1,
+  colorScope: 'perColor',
+  colors: ['Red'],
+  importance: 'normal',
+  ...extra,
+});
+
+/** A self-stacking effect above its family's lowest level, and the lowest level. */
+function stackingAboveLowest() {
+  for (const m of index.all()) {
+    if (!index.stacks(m.id, m.id)) continue;
+    const lowest = Math.min(
+      ...index
+        .family(m.family)
+        .filter((f) => f.pool === m.pool || f.pool === 'any')
+        .map((f) => f.level),
+    );
+    if (lowest < m.level) return { id: m.id, lowest };
+  }
+  throw new Error('no stacking family with several levels');
+}
+
+describe('default levels', () => {
+  it('an effect that stacks with itself accepts its family lowest level', () => {
+    const { id, lowest } = stackingAboveLowest();
+    expect(defaultMinLevel(index, id)).toBe(lowest);
+    expect(withDefaultLevels(effect(id), index)).toMatchObject({ minLevel: lowest });
+  });
+
+  it('an effect that does not stack with itself keeps its exact level', () => {
+    expect(index.stacks(7000090, 7000090)).toBe(false);
+    expect(defaultMinLevel(index, 7000090)).toBeUndefined();
+  });
+
+  it('levels already set are left alone', () => {
+    const { id } = stackingAboveLowest();
+    const meta = index.meta(id);
+    const need = effect(id, { minLevel: meta?.level ?? 0 });
+    expect(withDefaultLevels(need, index)).toBe(need);
+  });
+});
+
+describe('merging needs', () => {
+  it('the same need keeps the most copies and the highest importance, never the sum', () => {
+    const a = effect(7000090, { copies: 2, importance: 'high' });
+    const b = effect(7000090, { copies: 1, importance: 'mustKeep' });
+    const { needs, added, updated } = mergeNeeds([a], [b]);
+    expect(added).toBe(0);
+    expect(updated).toBe(1);
+    expect(needs).toEqual([{ ...a, copies: 2, importance: 'mustKeep' }]);
+  });
+
+  it('different colors, levels or relic kinds are different needs', () => {
+    const base = effect(7000090);
+    const others: Need[] = [
+      effect(7000090, { colors: ['Blue'] }),
+      effect(7000090, { minLevel: 0 }),
+      effect(7000090, { relics: 'deep' }),
+    ];
+    for (const o of others) expect(needKey(o)).not.toBe(needKey(base));
+    expect(mergeNeeds([base], others).needs).toHaveLength(4);
+  });
+
+  it('combos match whatever the order of their effects', () => {
+    const combo = (effects: number[]): Need => ({
+      kind: 'combo',
+      effects,
+      copies: 1,
+      colorScope: 'any',
+      importance: 'normal',
+    });
+    expect(needKey(combo([1, 2]))).toBe(needKey(combo([2, 1])));
+  });
+});
