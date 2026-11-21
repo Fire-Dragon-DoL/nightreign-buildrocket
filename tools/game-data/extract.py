@@ -141,7 +141,7 @@ def read_regulation(path: Path) -> dict[str, bytes]:
 # Only the fields we need, as (offset, struct format[, bit]) within a row.
 FIELDS = {
     'EquipParamAntique': {  # 48-byte rows
-        'relicColor': (4, 'B'), 'isDeepRelic': (7, 'B', 0), 'iconId': (28, 'i'),
+        'relicColor': (4, 'B'), 'isSalable': (6, 'B'), 'isDeepRelic': (7, 'B', 0), 'iconId': (28, 'i'),
         'table1': (16, 'i'), 'table2': (20, 'i'), 'table3': (24, 'i'),
     },
     'AttachEffectParam': {  # 68-byte rows
@@ -174,9 +174,12 @@ def read_param(b: bytes, fields: dict) -> dict[int, list[dict]]:
 def build_allowlist(params: dict, relic_ids: list[int], catalog_effects: list[int]) -> dict:
     antique, table_rows, effects = params['EquipParamAntique'], params['AttachEffectTableParam'], params['AttachEffectParam']
     relics = {}
+    unsellable = []
     for rid in relic_ids:
         row = antique[rid][0]
         relics[str(rid)] = [t for t in (row['table1'], row['table2'], row['table3']) if t != -1]
+        if row['isSalable'] == 0:
+            unsellable.append(rid)
 
     referenced = {t for ts in relics.values() for t in ts}
     referenced |= {DEEP_POOLS['needs_curse'], DEEP_POOLS['curses'], *DEEP_POOLS['other']}
@@ -198,6 +201,7 @@ def build_allowlist(params: dict, relic_ids: list[int], catalog_effects: list[in
         'deep_pools': DEEP_POOLS,
         'legacy_tables': LEGACY_TABLES,
         'relics': relics,
+        'unsellable': unsellable,
         'tables': tables,
         'pools': pools,
         'effects': {str(e): [effects[e][0]['compatibilityId'], effects[e][0]['overrideEffectId']]
@@ -319,7 +323,10 @@ def main() -> None:
     allowlist = build_allowlist(params, sorted(int(k) for k in names['relics']), [int(k) for k in names['effects']])
     (args.out / 'relic_effects_allowlist.json').write_text(json.dumps(allowlist, separators=(',', ':')) + '\n')
     print(f"relic_effects_allowlist.json: {len(allowlist['relics'])} relics, {len(allowlist['pools'])} pools, "
-          f"{len(allowlist['effects'])} effects")
+          f"{len(allowlist['effects'])} effects, {len(allowlist['unsellable'])} unsellable relics")
+    # Sanity check for a human: the unsellable list should be unique/quest relics, not random ones.
+    sample = sorted({names['relics'][str(r)]['name'] for r in allowlist['unsellable']})
+    print(f"  unsellable, e.g.: {', '.join(sample[:12])}{' …' if len(sample) > 12 else ''}")
 
     if args.menu:
         with tempfile.TemporaryDirectory() as tmp:

@@ -17,6 +17,7 @@ Regenerate the generated files after a game patch with
 Ids are game param row ids.
 
 - `relics[relicId]`: one effect table id per effect slot (`EquipParamAntique.attachEffectTableId_1..3`).
+- `unsellable`: relic ids that cannot be sold (`EquipParamAntique.isSalable` = 0, byte 6).
 - `tables[tableId]`: index into `pools`; `pools[i]`: effect ids that table can
   roll (`AttachEffectTableParam` rows with a chance weight > 0, base or DLC).
   Tables a relic names but that do not exist are left out: such relics cannot
