@@ -117,14 +117,10 @@ export const vesselName = (id: number): string =>
   catalog().vessel(id)?.name ?? `Unknown vessel (${id})`;
 export const heroName = (id: number): string => HEROES[id] ?? `Unknown hero (${id})`;
 
-let defaultRules: RollRules | null | undefined;
+let defaultRules: RollRules | undefined;
 
-/** Roll rules from the bundled data, or undefined when that data is not available locally. */
-export function rollRules(): RollRules | undefined {
-  if (defaultRules === undefined) {
-    defaultRules = rawRollRules
-      ? createRollRules(rawRollRules, (id) => catalog().relic(id)?.deep ?? false)
-      : null;
-  }
-  return defaultRules ?? undefined;
+/** Roll rules from the bundled game data (built once, lazily). */
+export function rollRules(): RollRules {
+  defaultRules ??= createRollRules(rawRollRules, (id) => catalog().relic(id)?.deep ?? false);
+  return defaultRules;
 }

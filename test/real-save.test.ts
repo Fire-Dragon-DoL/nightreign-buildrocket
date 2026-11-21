@@ -98,9 +98,8 @@ describe.skipIf(!savePath)('real save file', async () => {
     );
   });
 
-  it.skipIf(!rollRules())('only has relics the game can roll (needs local roll rules)', () => {
+  it('only has relics the game can roll', () => {
     const rules = rollRules();
-    if (!rules) return;
     for (const c of save.characters) {
       const broken = c.relics.filter((r) => rules.check(r).length > 0);
       expect(broken).toEqual([]);

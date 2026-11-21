@@ -177,11 +177,7 @@ test('loads a real save quickly', async ({ page }) => {
   await expect(page.getByTestId('build').first()).toBeVisible();
 });
 
-// Icons come from a local-only data file (data/game/icons.json).
-const hasIcons = existsSync(resolve(import.meta.dirname, '../data/game/icons.json'));
-
-test('shows game icons when the icon data is present', async ({ page }) => {
-  test.skip(!hasIcons, 'data/game/icons.json is not present');
+test('shows game icons', async ({ page }) => {
   await page.goto(APP_URL);
   await page.getByTestId('save-input').setInputFiles(await writeSyntheticSave());
   const icon = page.getByTestId('build').first().locator('img.icon').first();

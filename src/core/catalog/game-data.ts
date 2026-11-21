@@ -1,10 +1,8 @@
 /**
- * Raw game data files from data/game/. The always-present file is imported
- * statically; local-only files are picked up with import.meta.glob, which
- * yields nothing (instead of failing the build) when the file is missing.
- * See data/game/README.md.
+ * Raw game data files from data/game/ (see data/game/README.md).
  */
 import relicEffects from '../../../data/game/relic_effects.json';
+import rollRules from '../../../data/game/relic_effects_allowlist.json';
 
 export interface RawRelicEffects {
   relics: Record<string, { name: string; deep: boolean; color: number }>;
@@ -21,12 +19,6 @@ export interface RawRollRules {
   effects: Record<string, [number, number]>;
 }
 
-const optional = import.meta.glob<RawRollRules>('../../../data/game/relic_effects_allowlist.json', {
-  eager: true,
-  import: 'default',
-});
-
 export const rawRelicEffects = relicEffects as RawRelicEffects;
-
-/** Roll rules, or undefined when the local-only file is not present. */
-export const rawRollRules: RawRollRules | undefined = Object.values(optional)[0];
+// JSON imports type tuples as number[]; the file is generated, so trust its shape.
+export const rawRollRules = rollRules as unknown as RawRollRules;
