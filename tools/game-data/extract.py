@@ -207,38 +207,49 @@ def build_allowlist(params: dict, relic_ids: list[int], catalog_effects: list[in
 
 # --- Icons -------------------------------------------------------------------------------------
 
+# Menu texture sets: (individual textures, sprite sheets). The DLC set is optional.
+MENU_SETS = [('00_solo_l', '01_common_l'), ('20_solo_dlc01_l', '21_common_dlc01_l')]
+
+
 class IconSources:
     def __init__(self, menu: Path, kraken: Kraken):
-        self.menu, self.kraken = menu, kraken
-        layouts = kraken.decompress(menu / '01_common_l.sblytbnd.dcx')
-        self.sprites: dict[str, tuple[str, int, int, int, int]] = {}
-        for name, off, size in binder_entries(layouts, b'BND4'):
-            sheet = name.removesuffix('.layout')
-            text = layouts[off:off + size].decode('utf-8', 'replace')
-            for m in re.finditer(r'<SubTexture name="([^"]+)\.png" x="(\d+)" width="(\d+)" y="(\d+)" height="(\d+)"', text):
-                x, w, y, h = map(int, m.group(2, 3, 4, 5))
-                self.sprites[m.group(1)] = (sheet, x, y, w, h)
-        self.sheet_dds = tpf_textures(kraken.decompress(menu / '01_common_l.tpf.dcx'))
-        self.sheets: dict[str, Image.Image] = {}
-        index = (menu / '00_solo_l.tpfbhd').read_bytes()
-        self.knowledge = {int(m.group(1)): (off, size)
-                          for name, off, size in binder_entries(index, b'BHF4')
-                          if (m := re.fullmatch(r'MENU_Knowledge_(\d+)\.tpf\.dcx', name))}
+        self.kraken = kraken
+        self.sprites: dict[str, tuple[str, str, int, int, int, int]] = {}  # name -> (set, sheet, x, y, w, h)
+        self.sheet_dds: dict[str, dict[str, bytes]] = {}
+        self.sheets: dict[tuple[str, str], Image.Image] = {}
+        self.knowledge: dict[int, tuple[Path, int, int]] = {}  # icon id -> (bdt, offset, size)
+        for solo, common in MENU_SETS:
+            if not (menu / f'{common}.tpf.dcx').exists():
+                print(f'  {common}: not found, skipped', file=sys.stderr)
+                continue
+            layouts = kraken.decompress(menu / f'{common}.sblytbnd.dcx')
+            for name, off, size in binder_entries(layouts, b'BND4'):
+                sheet = name.removesuffix('.layout')
+                text = layouts[off:off + size].decode('utf-8', 'replace')
+                for m in re.finditer(r'<SubTexture name="([^"]+)\.png" x="(\d+)" width="(\d+)" y="(\d+)" height="(\d+)"', text):
+                    x, w, y, h = map(int, m.group(2, 3, 4, 5))
+                    self.sprites[m.group(1)] = (common, sheet, x, y, w, h)
+            self.sheet_dds[common] = tpf_textures(kraken.decompress(menu / f'{common}.tpf.dcx'))
+            index = (menu / f'{solo}.tpfbhd').read_bytes()
+            for name, off, size in binder_entries(index, b'BHF4'):
+                if m := re.fullmatch(r'MENU_Knowledge_(\d+)\.tpf\.dcx', name):
+                    self.knowledge[int(m.group(1))] = (menu / f'{solo}.tpfbdt', off, size)
 
     def sprite(self, name: str) -> Image.Image | None:
         s = self.sprites.get(name)
         if not s:
             return None
-        sheet, x, y, w, h = s
-        if sheet not in self.sheets:
-            self.sheets[sheet] = Image.open(io.BytesIO(self.sheet_dds[sheet])).convert('RGBA')
-        return self.sheets[sheet].crop((x, y, x + w, y + h))
+        common, sheet, x, y, w, h = s
+        if (common, sheet) not in self.sheets:
+            dds = self.sheet_dds[common][sheet]
+            self.sheets[(common, sheet)] = Image.open(io.BytesIO(dds)).convert('RGBA')
+        return self.sheets[(common, sheet)].crop((x, y, x + w, y + h))
 
     def knowledge_icon(self, icon: int) -> Image.Image | None:
         if icon not in self.knowledge:
             return None
-        off, size = self.knowledge[icon]
-        textures = tpf_textures(self.kraken.decompress(self.menu / '00_solo_l.tpfbdt', off, size))
+        bdt, off, size = self.knowledge[icon]
+        textures = tpf_textures(self.kraken.decompress(bdt, off, size))
         return Image.open(io.BytesIO(next(iter(textures.values())))).convert('RGBA')
 
 
