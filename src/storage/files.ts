@@ -15,6 +15,11 @@ export const CSV_FILE_TYPE: FilePickerAcceptType = {
   accept: { 'text/csv': ['.csv'] },
 };
 
+export const RSP_FILE_TYPE: FilePickerAcceptType = {
+  description: 'Buildrocket sell plan',
+  accept: { 'application/json': ['.rsp'] },
+};
+
 export function isAbortError(err: unknown): boolean {
   return err instanceof DOMException && err.name === 'AbortError';
 }

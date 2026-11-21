@@ -3,7 +3,7 @@
  * holds effect ids and counts, so the config never links back to the save.
  */
 import type { Build } from '../builds/builds.ts';
-import { catalog, heroName, RELIC_COLOR_NAMES } from '../catalog/catalog.ts';
+import { catalog, heroName, RELIC_COLOR_NAMES, rollRules } from '../catalog/catalog.ts';
 import {
   type ColorName,
   type ComboNeed,
@@ -29,13 +29,14 @@ const colorName = (itemId: number): ColorName | undefined => {
  * One group per build: every relic's full effect set as a combo (relics with
  * 2+ effects), plus each effect on its own, per color, with copies = how many
  * relics of that color in the build carry it. Curses on a build's relics are
- * tolerated by its combos.
+ * tolerated by its combos. Unsellable relics (unique, quest) are skipped:
+ * they are always kept, so they need no protection.
  */
 export function seedFromBuild(build: Build, importance: Importance = SEED_IMPORTANCE): NeedGroup {
   const combos = new Map<string, ComboNeed>();
   const singles = new Map<string, EffectNeed>();
   for (const relic of build.relics) {
-    if (!relic) continue;
+    if (!relic || !rollRules().isSellable(relic.itemId)) continue;
     const color = colorName(relic.itemId);
     const colors = color ? { colors: [color] } : {};
     const effects = relic.effects.filter((e): e is number => e !== null);

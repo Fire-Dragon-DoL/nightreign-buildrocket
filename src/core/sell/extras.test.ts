@@ -35,6 +35,8 @@ describe('seed from builds', () => {
     };
     const group = seedFromBuild(build);
     expect(group.name).toBe('Fire (Executor)');
+    // The unsellable relic (1180) is always kept: nothing imported for it.
+    expect(group.needs.some((n) => n.kind === 'effect' && n.effect === 7000300)).toBe(false);
     const combos = group.needs.filter((n) => n.kind === 'combo');
     expect(combos).toHaveLength(2);
     expect(combos[1]).toMatchObject({

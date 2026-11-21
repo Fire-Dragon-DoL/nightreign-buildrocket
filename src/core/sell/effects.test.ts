@@ -20,6 +20,17 @@ describe('effect families', () => {
     });
   });
 
+  it('reads heroes of unique relic effects', () => {
+    expect(
+      parseEffectName(
+        '[Special Relic - Recluse] Suffer blood loss and increase attack power upon Art activation',
+      ),
+    ).toMatchObject({
+      hero: 7,
+      family: '[Recluse] Suffer blood loss and increase attack power upon Art activation',
+    });
+  });
+
   it('puts normal +0..+2 and deep +3/+4 in one family', () => {
     const magic = index.family('Magic Attack Power Up');
     expect(magic.map((m) => [m.id, m.level, m.pool])).toEqual([

@@ -1,10 +1,12 @@
 import { BuildsViewer } from './pages/BuildsViewer.tsx';
 import { MissingRelics } from './pages/MissingRelics.tsx';
+import { SellPlanner } from './pages/SellPlanner.tsx';
 import { type Route, useHashRoute } from './useHashRoute.ts';
 
 const MENU: { route: Route; label: string }[] = [
   { route: 'builds', label: 'Builds Viewer' },
   { route: 'missing', label: 'Relics Needs' },
+  { route: 'sell', label: 'Sell Planner' },
 ];
 
 export function App() {
@@ -24,9 +26,6 @@ export function App() {
               {item.label}
             </a>
           ))}
-          <span className="menu__item" aria-disabled="true" title="Coming soon">
-            Sell Planner
-          </span>
         </nav>
       </header>
 
@@ -36,6 +35,9 @@ export function App() {
       </div>
       <div className="page" hidden={route !== 'missing'}>
         <MissingRelics />
+      </div>
+      <div className="page" hidden={route !== 'sell'}>
+        <SellPlanner />
       </div>
 
       <footer className="app__footer muted">
