@@ -226,6 +226,9 @@ describe('godroll heuristic', () => {
     const roll = relic(RED, [VIGOR_3, STR_3, DEX_3]);
     expect(looksLikeGodroll(roll, index, emptyConfig())).toBe(true);
     expect(looksLikeGodroll(relic(RED, [VIGOR_3, STR_1]), index, emptyConfig())).toBe(false);
+    // Two top-level effects are not enough on a 3-slot relic, but are on a 2-slot one.
+    expect(looksLikeGodroll(relic(RED, [VIGOR_3, STR_3, STR_1]), index, emptyConfig())).toBe(false);
+    expect(looksLikeGodroll(relic(101, [VIGOR_3, STR_3]), index, emptyConfig())).toBe(true);
     const plan = planSell([roll], emptyConfig());
     expect(plan.sell[0]).toMatchObject({ risk: GODROLL_RISK, flags: ['godroll'] });
   });

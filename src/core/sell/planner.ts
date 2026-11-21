@@ -550,9 +550,10 @@ export function planSell(
 }
 
 /**
- * Flag-only heuristic for relics the config doesn't cover: two or more
- * effects at the top level of their (leveled) families, from different
- * families, none ignored on purpose, and no dealbreaker curse.
+ * Flag-only heuristic for relics the config doesn't cover: every slot (3 on a
+ * 3-slot relic, 2 on a 2-slot one) holds an effect at the top level of its
+ * leveled family, all from different families, none ignored on purpose, and
+ * no dealbreaker curse.
  */
 export function looksLikeGodroll(
   spec: RelicSpec,
@@ -572,5 +573,6 @@ export function looksLikeGodroll(
     const max = Math.max(...levels.map((m) => m.level));
     if (new Set(levels.map((m) => m.level)).size >= 2 && meta.level === max) top.add(meta.family);
   }
-  return top.size >= 2;
+  const slots = rollRules().slotCount(spec.itemId) || spec.effects.filter((e) => e !== null).length;
+  return top.size >= 2 && top.size >= Math.min(3, slots);
 }
