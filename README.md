@@ -15,8 +15,7 @@ no install, and your save never leaves your computer.
    per color and which combinations (optionally derived from your builds),
    and get a list of relics that are safe to sell.
 
-Status: goals 1 (Builds Viewer) and 2 (Relics Needs) work.
-Goal 3 (Sell Planner) is next.
+Status: all three work: Builds Viewer, Relics Needs and Sell Planner.
 
 ## Using it
 
@@ -37,6 +36,32 @@ pool_, then pick a character on each side. Relics match only when identical
 needed as many times as the single build using it most needs it. Each missing
 relic lists the builds it blocks; untick builds you don't care about. _Export
 CSV_ writes the list with names and ids (UTF-8, opens in Excel).
+
+**Sell Planner:** open your save (or JSON), then say what you want to keep:
+
+- **Normal effects / Deep of Night:** give an effect an importance (Low,
+  Normal, High, Must keep) and how many copies to keep, per color or in
+  total. Higher levels count fully toward a lower-level need; lower levels
+  stand in, at a discount, for copies you lack. Effects you don't configure
+  are worth nothing. Deep of Night also lists curses: set how much each one
+  bothers you by default (a _dealbreaker_ stops a relic from counting), or
+  want them like any effect.
+- **Groups & combos:** needs live in named groups (shown as "kept by").
+  A combo is effects you want on the **same** relic (a godroll); relics with
+  more effects match too, partial matches are weak backups. Each need can
+  tolerate curses the default says are dealbreakers.
+- **Stacking:** which levels stack in one build, from community data; change
+  a family with a preset or a grid.
+- **Seed from builds:** turn builds into groups once, then edit them.
+
+_Results_ lists every relic you can sell, grouped by Deep/normal, color and
+size, from risk 0 (safe) to 99, with why it's safe or what it would hurt, and
+a suggested in-game search per group. Selling everything up to a given risk
+is safe in the order shown. Relics the game won't let you sell aren't listed
+but still count toward your needs. Relics nothing in your plan wants but that
+look rare are flagged _possible godroll_. Save the plan as a `.rsp` file to
+reuse it; it holds only effects and rules, never anything from your save.
+_Export CSV_ writes the list sorted by risk.
 
 Only PC saves are supported for now.
 
@@ -123,15 +148,18 @@ src/
     catalog/   relic / effect / vessel / hero data
     builds/    build extraction, JSON import/export, save-or-JSON loading
     compare/   missing relics between two characters, CSV export
+    sell/      sell planner: effect families, .rsp plans, risk ranking
   worker/      web worker + promise-based client
   storage/     files on disk (File System Access API)
   ui/          React components
 e2e/           Playwright tests
 test/          shared test helpers, real-save tests
 data/game/     game data: names, roll rules, icons (see its README)
+data/sell/     sell planner stacking rules and effect strengths
 docs/          save format write-up
 scripts/       release / deploy
-tools/         game data extractor (Python + a small Rust decompressor)
+tools/         game data extractor (Python + a small Rust decompressor),
+               sell planner rules generator
 ```
 
 ## License
