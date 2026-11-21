@@ -19,7 +19,7 @@ type Run =
   | { status: 'error'; message: string };
 
 /**
- * Goal 2: which relics the "Relics pool" character lacks to make every
+ * Relics Needs (goal 2): which relics the "Relics pool" character lacks to make every
  * (ticked) build of the "Builds source" character.
  */
 export function MissingRelics() {
@@ -94,6 +94,12 @@ export function MissingRelics() {
 
   return (
     <>
+      <p className="intro">
+        Find which relics you lack to recreate builds from another save. Load the file with the
+        builds as <b>Builds source</b> and the one you'll play on as <b>Relics pool</b>, then pick a
+        character on each side. Each missing relic shows the builds it blocks. Untick builds you
+        don't need, then export the list as CSV.
+      </p>
       <section className="loaders loaders--pair">
         <FileSourcePicker source={source} label="Builds source" testId="source" />
         <FileSourcePicker source={pool} label="Relics pool" testId="pool" />

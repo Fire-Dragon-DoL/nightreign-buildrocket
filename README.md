@@ -15,8 +15,8 @@ no install, and your save never leaves your computer.
    per color and which combinations (optionally derived from your builds),
    and get a list of relics that are safe to sell.
 
-Status: goals 1 (Builds viewer) and 2 (Missing Relics Identification) work.
-Goal 3 (Relic Sell Helper) is next.
+Status: goals 1 (Builds Viewer) and 2 (Relics Needs) work.
+Goal 3 (Sell Planner) is next.
 
 ## Using it
 
@@ -30,7 +30,7 @@ Anywhere the app asks for a file, a save and a builds JSON exported by the
 app are interchangeable. Exported builds files also carry every relic each
 exported character owns, so a friend can send you a JSON instead of their save.
 
-**Missing Relics Identification:** open the save (or JSON) with the builds you
+**Relics Needs:** open the save (or JSON) with the builds you
 want as _Builds source_ and the one whose relics you will use as _Relics
 pool_, then pick a character on each side. Relics match only when identical
 (same relic, effects and curses). A relic can sit in several presets, so it is

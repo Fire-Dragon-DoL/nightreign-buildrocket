@@ -3,8 +3,8 @@ import { MissingRelics } from './pages/MissingRelics.tsx';
 import { type Route, useHashRoute } from './useHashRoute.ts';
 
 const MENU: { route: Route; label: string }[] = [
-  { route: 'builds', label: 'Builds viewer' },
-  { route: 'missing', label: 'Missing Relics Identification' },
+  { route: 'builds', label: 'Builds Viewer' },
+  { route: 'missing', label: 'Relics Needs' },
 ];
 
 export function App() {
@@ -25,12 +25,9 @@ export function App() {
             </a>
           ))}
           <span className="menu__item" aria-disabled="true" title="Coming soon">
-            Relic Sell Helper
+            Sell Planner
           </span>
         </nav>
-        <span className="muted">
-          Runs locally in your browser. Your save never leaves this computer.
-        </span>
       </header>
 
       {/* Pages stay mounted (just hidden) so loaded files survive switching pages. */}

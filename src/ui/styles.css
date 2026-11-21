@@ -426,3 +426,14 @@ button.button--quiet {
 .missing__builds .build__name {
   font-size: 1rem;
 }
+
+.intro {
+  margin: 0;
+  max-width: 90ch;
+  color: var(--muted);
+}
+
+.intro b {
+  color: var(--text);
+  font-weight: 600;
+}

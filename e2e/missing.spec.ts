@@ -78,17 +78,17 @@ test.beforeAll(() => {
   if (!existsSync(APP)) throw new Error('dist/index.html is missing: run `pnpm build` first.');
 });
 
-test('has a menu with the builds viewer, missing relics and a disabled sell helper', async ({
+test('has a menu with the builds viewer, relics needs and a disabled sell planner', async ({
   page,
 }) => {
   await page.goto(pathToFileURL(APP).href);
   const menu = page.getByRole('navigation', { name: 'Pages' });
-  await expect(menu.getByRole('link', { name: 'Builds viewer' })).toHaveAttribute(
+  await expect(menu.getByRole('link', { name: 'Builds Viewer' })).toHaveAttribute(
     'aria-current',
     'page',
   );
-  await expect(menu.getByText('Relic Sell Helper')).toHaveAttribute('aria-disabled', 'true');
-  await menu.getByRole('link', { name: 'Missing Relics Identification' }).click();
+  await expect(menu.getByText('Sell Planner')).toHaveAttribute('aria-disabled', 'true');
+  await menu.getByRole('link', { name: 'Relics Needs' }).click();
   await expect(page.getByTestId('source-input')).toBeAttached();
   await expect(page.getByTestId('viewer-input')).toBeHidden();
 });

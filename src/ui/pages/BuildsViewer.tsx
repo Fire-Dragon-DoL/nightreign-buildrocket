@@ -35,6 +35,10 @@ export function BuildsViewer() {
 
   return (
     <>
+      <p className="intro">
+        Open a save or a builds JSON and pick a character to see all its saved builds. Export them
+        to JSON to back them up or send them to a friend.
+      </p>
       <section className="loaders">
         <FileSourcePicker
           source={source}
