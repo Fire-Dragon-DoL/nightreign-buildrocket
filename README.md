@@ -8,14 +8,15 @@ no install, and your save never leaves your computer.
 
 1. **Builds:** read a save, extract every saved relic build, show it, export
    it to JSON and load it back.
-2. **Compare:** take two saves, pick a main one, and list (as CSV) the relics
-   the second save is missing to recreate the first save's builds.
+2. **Missing relics:** take two saves (or builds JSON files), pick a
+   "builds source" and a "relics pool" character, and list (on screen and as
+   CSV) the relics the pool is missing to recreate the source's builds.
 3. **Sell planner:** describe which effects you want to keep, how many copies
    per color and which combinations (optionally derived from your builds),
    and get a list of relics that are safe to sell.
 
-Status: the save reader and goal 1 (view, export and import builds) work.
-Goals 2 and 3 are next.
+Status: goals 1 (Builds viewer) and 2 (Missing Relics Identification) work.
+Goal 3 (Relic Sell Helper) is next.
 
 ## Using it
 
@@ -24,6 +25,18 @@ Goals 2 and 3 are next.
 2. Open it in **Google Chrome** (other browsers are not supported).
 3. Open your save: `%APPDATA%\Nightreign\<steam id>\NR0000.sl2`
    (`NR0000.co2` with the Seamless Co-op mod).
+
+Anywhere the app asks for a file, a save and a builds JSON exported by the
+app are interchangeable. Exported builds files also carry every relic each
+exported character owns, so a friend can send you a JSON instead of their save.
+
+**Missing Relics Identification:** open the save (or JSON) with the builds you
+want as _Builds source_ and the one whose relics you will use as _Relics
+pool_, then pick a character on each side. Relics match only when identical
+(same relic, effects and curses). A relic can sit in several presets, so it is
+needed as many times as the single build using it most needs it. Each missing
+relic lists the builds it blocks; untick builds you don't care about. _Export
+CSV_ writes the list with names and ids (UTF-8, opens in Excel).
 
 Only PC saves are supported for now.
 
@@ -108,7 +121,8 @@ src/
     binary/    byte reading helpers, MD5
     save/      save file reader (container → entries → slots)
     catalog/   relic / effect / vessel / hero data
-    builds/    build extraction and JSON import/export
+    builds/    build extraction, JSON import/export, save-or-JSON loading
+    compare/   missing relics between two characters, CSV export
   worker/      web worker + promise-based client
   storage/     files on disk (File System Access API)
   ui/          React components
