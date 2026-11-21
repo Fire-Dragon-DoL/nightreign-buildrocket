@@ -6,8 +6,9 @@
  * - A need wants `copies` relics with an effect (or a combo of effects on one
  *   relic), per color or in total. A relic is one copy of each effect it
  *   carries and of each combo it matches. Higher levels count fully, lower
- *   levels and partial combos are backups worth less than a copy (and a
- *   backup only counts if it stacks with the copies already counted).
+ *   levels and partial combos are backups worth less than a copy: they stand
+ *   in for missing copies only, one each (and only if they stack with the
+ *   copies already counted).
  * - Unsellable relics never appear in the list but count toward every need.
  * - Planning is greedy over the whole list: repeatedly sell the relic whose
  *   sale is least risky right now, assuming everything before it is sold.
@@ -242,20 +243,29 @@ function matchNeed(
   };
 }
 
-/** Coverage of a bucket: full copies + stackable backups at their weight; `skip` is left out. */
+/**
+ * Coverage of a bucket: full copies, plus backups standing in for the copies
+ * still missing (one backup per missing copy, best first, and only if it
+ * stacks with what is already counted). Backups never add up to replace a
+ * copy, and they are worth nothing while the target is met. `skip` is left out.
+ */
 function coverage(bucket: Bucket, index: EffectIndex, skip?: Contribution): number {
-  let total = 0;
+  let full = 0;
   const counted = new Set<number>();
   const backups: Contribution[] = [];
   for (const c of bucket.members) {
     if (!c.unit.alive || c === skip) continue;
     if (c.full) {
-      total += 1;
+      full += 1;
       if (c.effect !== null) counted.add(c.effect);
     } else backups.push(c);
   }
+  let slots = bucket.target - full;
+  if (slots <= 0) return full;
+  let total = full;
   backups.sort((a, b) => b.weight - a.weight);
   for (const b of backups) {
+    if (slots <= 0) break;
     if (b.effect !== null) {
       let ok = true;
       for (const x of counted) {
@@ -268,6 +278,7 @@ function coverage(bucket: Bucket, index: EffectIndex, skip?: Contribution): numb
       counted.add(b.effect);
     }
     total += b.weight;
+    slots--;
   }
   return total;
 }
@@ -318,7 +329,11 @@ function assess(unit: Unit, index: EffectIndex): Assessment {
           ? `${where}: ${fmt(spares)} spare left after selling`
           : `${where}: exactly ${b.target} left after selling`;
     } else {
-      risk = BREAK_RISK[b.importance] * (0.5 + 0.5 * Math.min(1, loss));
+      // Must keep means must keep; otherwise losing a backup hurts less than losing a copy.
+      risk =
+        b.importance === 'mustKeep'
+          ? 100
+          : BREAK_RISK[b.importance] * (0.5 + 0.5 * Math.min(1, loss));
       reason = `${where}: only ${fmt(after)} of ${b.target} left after selling`;
     }
     sum += risk;

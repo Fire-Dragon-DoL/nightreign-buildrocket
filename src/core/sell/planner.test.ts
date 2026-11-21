@@ -136,6 +136,15 @@ describe('combos', () => {
     expect(plan.sell[0]?.spec).toEqual(partial);
   });
 
+  it('partial matches never add up to replace the real thing', () => {
+    const full = relic(DEEP_RED, godroll);
+    const partials = [1, 2, 3, 4, 5].map(() => relic(DEEP_RED, [FIRE_4]));
+    const plan = planSell([full, ...partials], config([combo]));
+    expect(plan.kept.map((k) => k.spec)).toEqual([full]);
+    // The target is met by the real relic, so partial backups are free to sell.
+    expect(plan.sell[0]).toMatchObject({ count: 5, risk: 0 });
+  });
+
   it('subset: a two-effect combo matches a three-effect relic', () => {
     const need: Need = { ...combo, effects: [MAGIC_2, VIGOR_3] };
     const plan = planSell([relic(RED, [MAGIC_2, VIGOR_3, STR_1])], config([need]));
