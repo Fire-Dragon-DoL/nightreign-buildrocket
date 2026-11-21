@@ -88,13 +88,17 @@ reusable modules:
 - Every feature gets unit tests for its `core` logic and at least one e2e
   path through the UI.
 
-## Licensing
+## Licensing and game data
 
-- Project license: AGPL-3.0.
-- Game data comes from `data/vendor/er-save-manager/` (last MIT revision of
-  er-save-manager). Its current revisions are **not** free software: you may
-  read them to learn the format, but never copy code or data from them.
-- Credit any new third-party data in `data/vendor/<source>/` with its license.
+- The project is UNLICENSED: personal use, all rights reserved (`LICENSE`).
+- Game data lives in `data/game/` (see its README). `relic_effects.json` is
+  committed with its license file `relic_effects.LICENSE`, which must stay
+  next to it. `relic_effects_allowlist.json` and `icons.json` must not be
+  redistributed: they stay gitignored and local, and the app must keep
+  building and working without them (load them via `import.meta.glob`, as in
+  `src/core/catalog/game-data.ts` and `src/ui/icons.ts`).
+- `icons.json` is generated from an icons SQLite database with
+  `node scripts/convert-icons.mjs <icons.db>`.
 
 ## Releasing
 

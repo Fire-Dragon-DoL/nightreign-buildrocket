@@ -66,6 +66,12 @@ pnpm test:e2e     # e2e against dist/index.html over file:// (build first)
 pnpm check        # everything: lint, types, unit, build, e2e
 ```
 
+### Game data
+
+`data/game/` holds relic, effect and vessel names (committed) plus two
+local-only files, icons and roll rules, that are gitignored. The app works
+without them. See `data/game/README.md` for how to add them.
+
 ### Testing with your own save
 
 Real saves are **never committed** (they contain your Steam id). To run the
@@ -90,6 +96,10 @@ pnpm release patch             # or minor / major / 1.2.3
 This bumps the version, tags, pushes, and creates a GitHub release with the
 HTML file attached. Release notes are generated from conventional commits.
 
+Both refuse to run while local-only game data (icons, roll rules) is in
+`data/game/`, since a published build would contain it; see
+`data/game/README.md`.
+
 Optionally, `pnpm deploy:pages` publishes the app to GitHub Pages (enable
 Pages once: Settings → Pages → Deploy from branch `gh-pages`).
 
@@ -107,19 +117,11 @@ src/
   ui/          React components
 e2e/           Playwright tests
 test/          shared test helpers, real-save tests
-data/vendor/   third-party data with its license
+data/game/     game data: names, roll rules, icons (see its README)
 docs/          save format write-up
 scripts/       release / deploy
 ```
 
-## Credits
-
-- Relic, effect and vessel data: [er-save-manager](https://github.com/Hapfel1/er-save-manager)
-  by Hapfel (MIT revision, see `data/vendor/er-save-manager/`).
-- Save format research: see [docs/save-format.md](docs/save-format.md).
-
-Not affiliated with FromSoftware or Bandai Namco.
-
 ## License
 
-[AGPL-3.0](LICENSE).
+Personal project, not licensed for use by others. All rights reserved (see [LICENSE](LICENSE)). Not affiliated with FromSoftware or Bandai Namco.

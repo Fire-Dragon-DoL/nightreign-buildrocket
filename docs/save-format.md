@@ -3,10 +3,6 @@
 How `src/core/save/` reads a save. All offsets were checked against a real
 save (game patch current as of November 2026). Little-endian throughout.
 
-Reference used while researching: [Hapfel1/er-save-manager](https://github.com/Hapfel1/er-save-manager)
-(read for facts only; its current code is under a non-free license and must
-not be copied, see [vendored data](../data/vendor/er-save-manager/README.md)).
-
 ## Files
 
 | Platform               | File                                         | Status                                                |
