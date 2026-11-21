@@ -25,6 +25,15 @@ export type ColorName = (typeof RELIC_COLORS)[number];
 
 export type ColorScope = 'perColor' | 'any';
 
+/** Which relics a need counts: normal ones, Deep of Night ones, or both. */
+export const RELIC_KINDS = ['normal', 'deep', 'any'] as const;
+export type RelicKind = (typeof RELIC_KINDS)[number];
+export const RELIC_KIND_LABELS: Record<RelicKind, string> = {
+  normal: 'Normal relics',
+  deep: 'Deep relics',
+  any: 'Both',
+};
+
 interface NeedBase {
   /** Copies wanted: per color with `perColor`, in total with `any`. */
   copies: number;
@@ -34,6 +43,11 @@ interface NeedBase {
   importance: Importance;
   /** Curse id → penalty for this need only (overrides the curse's default). */
   curseOverrides?: Record<number, CursePenalty>;
+  /**
+   * Relics that count. Default: an effect need counts relics of its effect's kind (a normal effect,
+   * normal relics); a combo counts both (deep relics also roll many normal effects).
+   */
+  relics?: RelicKind;
 }
 
 /** Keep copies of one effect (at `minLevel` or higher; lower levels are backups). */
@@ -48,6 +62,8 @@ export interface EffectNeed extends NeedBase {
 export interface ComboNeed extends NeedBase {
   kind: 'combo';
   effects: number[];
+  /** Effect id → lowest level that counts for that member (default: the member's own level). */
+  minLevels?: Record<number, number>;
 }
 
 export type Need = EffectNeed | ComboNeed;

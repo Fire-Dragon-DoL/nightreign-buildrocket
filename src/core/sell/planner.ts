@@ -35,6 +35,7 @@ import {
   type Importance,
   type Need,
   RELIC_COLORS,
+  type RelicKind,
   type SellConfig,
 } from './config.ts';
 import { buildEffectIndex, type EffectIndex, type EffectMeta } from './effects.ts';
@@ -195,6 +196,10 @@ interface Contribution {
   weight: number;
   /** Matching effect, for stacking checks (null for combos: they are about one relic). */
   effect: number | null;
+  /** Level matched per wanted effect (combo members in order), -1 = missing. */
+  levels: number[];
+  /** Levels above the minimum, summed: a higher level is worth keeping over a lower one. */
+  surplus: number;
 }
 
 interface Bucket {
@@ -213,6 +218,8 @@ interface Match {
   full: boolean;
   weight: number;
   effect: number | null;
+  levels: number[];
+  surplus: number;
 }
 
 const colorOf = (itemId: number): ColorName | null => {
@@ -229,14 +236,27 @@ const poolsMatch = (a: EffectMeta, b: EffectMeta) =>
 const relicEffects = (spec: RelicSpec): number[] =>
   [...spec.effects, ...spec.curses].filter((e): e is number => e !== null);
 
+/** A member's name, or "Family +N or higher" when a lower level is allowed. */
+function memberLabel(index: EffectIndex, id: number, minLevel: number | undefined): string {
+  const meta = index.meta(id);
+  if (!meta) return effectName(id);
+  if (minLevel === undefined || minLevel === meta.level) return meta.name;
+  return `${meta.family} +${minLevel} or higher`;
+}
+
+/** Relics a need counts (see `Need.relics`). */
+export function needRelicKind(need: Need, index: EffectIndex): RelicKind {
+  if (need.relics) return need.relics;
+  if (need.kind === 'combo') return 'any';
+  const pool = index.meta(need.effect)?.pool ?? 'any';
+  return pool === 'deep' ? 'deep' : pool === 'normal' ? 'normal' : 'any';
+}
+
 function needLabel(need: Need, index: EffectIndex): string {
   if (need.kind === 'combo') {
-    return need.effects.map((id) => index.meta(id)?.name ?? effectName(id)).join(' + ');
+    return need.effects.map((id) => memberLabel(index, id, need.minLevels?.[id])).join(' + ');
   }
-  const meta = index.meta(need.effect);
-  const name = meta?.name ?? effectName(need.effect);
-  if (!meta || need.minLevel === undefined || need.minLevel === meta.level) return name;
-  return `${meta.family} +${need.minLevel}`;
+  return memberLabel(index, need.effect, need.minLevel);
 }
 
 /** The effect id of `meta`'s family at `level` (same pool), for strength ratios. */
@@ -260,10 +280,34 @@ function matchEffect(
   const wantedId = effectAtLevel(index, wanted, minLevel);
   for (const id of effects) {
     const meta = index.meta(id);
-    if (!meta || meta.family !== wanted.family || !poolsMatch(meta, wanted)) continue;
-    if (meta.level >= minLevel) return { full: true, weight: 1, effect: id };
-    const weight = index.backupWeight(id, wantedId);
-    if (weight > 0 && (!best || weight > best.weight)) best = { full: false, weight, effect: id };
+    // Families already keep different effects apart (same-named normal / deep ones are split);
+    // which relics count is the need's `relics` setting.
+    if (!meta || meta.family !== wanted.family) continue;
+    const m: Match =
+      meta.level >= minLevel
+        ? {
+            full: true,
+            weight: 1,
+            effect: id,
+            levels: [meta.level],
+            surplus: meta.level - minLevel,
+          }
+        : {
+            full: false,
+            weight: index.backupWeight(id, wantedId),
+            effect: id,
+            levels: [meta.level],
+            surplus: 0,
+          };
+    if (m.weight <= 0) continue;
+    // The highest level on the relic is the one that counts.
+    if (
+      !best ||
+      (m.full && !best.full) ||
+      (m.full === best.full && meta.level > (best.levels[0] ?? -1))
+    ) {
+      best = m;
+    }
   }
   return best;
 }
@@ -282,28 +326,37 @@ function matchNeed(
   }
   if (need.kind === 'effect') {
     const meta = index.meta(need.effect);
-    if (!meta)
-      return effects.includes(need.effect) ? { full: true, weight: 1, effect: need.effect } : null;
+    if (!meta) {
+      return effects.includes(need.effect)
+        ? { full: true, weight: 1, effect: need.effect, levels: [0], surplus: 0 }
+        : null;
+    }
     return matchEffect(index, meta, need.minLevel ?? meta.level, effects);
   }
   let total = 0;
   let allFull = true;
+  let surplus = 0;
+  const levels: number[] = [];
   for (const id of need.effects) {
     const meta = index.meta(id);
     const m = meta
-      ? matchEffect(index, meta, meta.level, effects)
+      ? matchEffect(index, meta, need.minLevels?.[id] ?? meta.level, effects)
       : effects.includes(id)
-        ? { full: true, weight: 1, effect: id }
+        ? { full: true, weight: 1, effect: id, levels: [0], surplus: 0 }
         : null;
     if (!m?.full) allFull = false;
     total += m?.weight ?? 0;
+    surplus += m?.full ? m.surplus : 0;
+    levels.push(m?.levels[0] ?? -1);
   }
-  if (allFull) return { full: true, weight: 1, effect: null };
+  if (allFull) return { full: true, weight: 1, effect: null, levels, surplus };
   if (total <= 0) return null;
   return {
     full: false,
     weight: (PARTIAL_COMBO_FACTOR * total) / need.effects.length,
     effect: null,
+    levels,
+    surplus: 0,
   };
 }
 
@@ -394,7 +447,13 @@ function findCover(
     if (v === u || !v.alive || v.color !== u.color || v.deep !== u.deep) continue;
     const ok = [first, ...rest].every((c) => {
       const vc = byUnit.get(v)?.get(c.bucket);
-      return !!vc && (vc.full || (!c.full && vc.weight >= c.weight));
+      // At least as good for this need: full if this one is, and each effect at the same level or
+      // higher (a +1 doesn't cover a +4 even when both are enough for the need).
+      return (
+        !!vc &&
+        (vc.full || (!c.full && vc.weight >= c.weight)) &&
+        c.levels.every((level, i) => (vc.levels[i] ?? -1) >= level)
+      );
     });
     if (ok) covers.push(v);
   }
@@ -567,8 +626,10 @@ export function planSell(
         );
       }
 
+      const relicKind = needRelicKind(need, index);
       for (const unit of units) {
         if (unit.color && !colors.includes(unit.color)) continue;
+        if (relicKind !== 'any' && unit.deep !== (relicKind === 'deep')) continue;
         const bucket = byColor.get(need.colorScope === 'perColor' ? unit.color : null);
         if (!bucket) continue;
         const match = matchNeed(config, index, need, unit.spec);
@@ -576,7 +637,8 @@ export function planSell(
         const c: Contribution = { bucket, unit, ...match };
         bucket.members.push(c);
         unit.contributions.push(c);
-        unit.value += IMPORTANCE_WEIGHT[need.importance] * match.weight;
+        // Higher levels than needed add value, so lower ones are sold first.
+        unit.value += IMPORTANCE_WEIGHT[need.importance] * (match.weight + 0.1 * match.surplus);
         if (match.effect !== null && !index.stackingKnown(match.effect))
           unit.stackingUnknown = true;
       }

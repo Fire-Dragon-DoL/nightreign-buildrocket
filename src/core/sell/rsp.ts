@@ -19,6 +19,8 @@ import {
   type Need,
   type NeedGroup,
   RELIC_COLORS,
+  RELIC_KINDS,
+  type RelicKind,
   type SellConfig,
 } from './config.ts';
 
@@ -33,7 +35,8 @@ interface Named {
 interface NeedJson {
   kind: 'effect' | 'combo';
   effect?: Named;
-  effects?: Named[];
+  effects?: (Named & { minLevel?: number })[];
+  relics?: RelicKind;
   minLevel?: number;
   copies: number;
   colorScope: ColorScope;
@@ -77,13 +80,17 @@ function needToJson(need: Need): NeedJson {
         }
       : {
           kind: 'combo',
-          effects: need.effects.map(effect),
+          effects: need.effects.map((id) => {
+            const minLevel = need.minLevels?.[id];
+            return minLevel === undefined ? effect(id) : { ...effect(id), minLevel };
+          }),
           copies: need.copies,
           colorScope: need.colorScope,
           importance: need.importance,
         };
   if (need.kind === 'effect' && need.minLevel !== undefined) json.minLevel = need.minLevel;
   if (need.colors) json.colors = [...need.colors];
+  if (need.relics) json.relics = need.relics;
   if (need.curseOverrides && Object.keys(need.curseOverrides).length > 0) {
     json.curseOverrides = entries(need.curseOverrides).map(([id, penalty]) => ({
       curse: effect(id),
@@ -156,10 +163,11 @@ function needFromJson(value: unknown): Need {
     colorScope: oneOf(n.colorScope, ['perColor', 'any'] as const, 'color scope'),
     importance: oneOf(n.importance, IMPORTANCES, 'importance'),
   };
-  const extra: Pick<Need, 'colors' | 'curseOverrides'> = {};
+  const extra: Pick<Need, 'colors' | 'curseOverrides' | 'relics'> = {};
   if (n.colors !== undefined) {
     extra.colors = list(n.colors, 'colors').map((c) => oneOf(c, RELIC_COLORS, 'color'));
   }
+  if (n.relics !== undefined) extra.relics = oneOf(n.relics, RELIC_KINDS, 'relic kind');
   if (n.curseOverrides !== undefined) {
     extra.curseOverrides = {};
     for (const o of list(n.curseOverrides, 'curse overrides')) {
@@ -180,9 +188,19 @@ function needFromJson(value: unknown): Need {
     return need;
   }
   if (n.kind === 'combo') {
-    const effects = list(n.effects, 'combo effects').map((e) => idOf(e, 'combo effect'));
+    const members = list(n.effects, 'combo effects');
+    const effects = members.map((e) => idOf(e, 'combo effect'));
+    const minLevels: Record<number, number> = {};
+    for (const m of members) {
+      const level = (m as { minLevel?: unknown }).minLevel;
+      if (level === undefined) continue;
+      if (typeof level !== 'number') throw new RspError('Invalid combo minimum level.');
+      minLevels[idOf(m, 'combo effect')] = level;
+    }
     if (effects.length === 0) throw new RspError('A combo needs at least one effect.');
-    return { kind: 'combo', effects, ...base, ...extra };
+    const combo: Need = { kind: 'combo', effects, ...base, ...extra };
+    if (Object.keys(minLevels).length > 0) combo.minLevels = minLevels;
+    return combo;
   }
   throw new RspError(`Unknown need kind: ${String(n.kind)}.`);
 }

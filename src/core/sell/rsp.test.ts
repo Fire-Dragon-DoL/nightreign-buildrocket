@@ -29,6 +29,8 @@ const sample = (): SellConfig => ({
         {
           kind: 'combo',
           effects: [6001601, 6611302, 6610500],
+          minLevels: { 6001601: 1 },
+          relics: 'deep',
           copies: 1,
           colorScope: 'any',
           importance: 'normal',

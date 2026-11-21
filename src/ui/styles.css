@@ -823,3 +823,13 @@ input.group-card__name {
   border-color: var(--accent);
   color: var(--accent);
 }
+
+.combo__member {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+select.level-select {
+  font-size: 0.85rem;
+}

@@ -231,6 +231,73 @@ describe('combos', () => {
   });
 });
 
+describe('levels and relic kinds', () => {
+  const PHYS_1 = 7001401;
+  const PHYS_2 = 7001402;
+  const PHYS_3 = 6001400;
+  const PHYS_4 = 6001401;
+  const BESTIAL = 7044400;
+  // Physical Attack Up +4 with Bestial Incantations, or a lower Physical level (+1 at least).
+  const combo: Need = {
+    kind: 'combo',
+    effects: [PHYS_4, BESTIAL],
+    minLevels: { [PHYS_4]: 1 },
+    copies: 1,
+    colorScope: 'any',
+    importance: 'mustKeep',
+  };
+
+  it('a combo member can accept lower levels, on normal or deep relics', () => {
+    const plan = planSell([relic(RED, [PHYS_1, BESTIAL])], config([combo]));
+    expect(plan.needs[0]).toMatchObject({
+      label: 'Physical Attack Up +1 or higher + Improved Bestial Incantations',
+      full: 1,
+    });
+    const deep = planSell([relic(DEEP_RED, [PHYS_3, BESTIAL])], config([combo]));
+    expect(deep.needs[0]?.full).toBe(1);
+  });
+
+  it('keeps the highest level: the lower one is sold, and is not called a cover', () => {
+    const high = relic(DEEP_RED, [PHYS_4, BESTIAL]);
+    const low = relic(RED, [PHYS_2, BESTIAL]);
+    const plan = planSell([high, low], config([combo]));
+    expect(plan.sell.map((e) => e.spec)).toEqual([low]);
+    expect(plan.kept.map((k) => k.spec)).toEqual([high]);
+    // Different kinds and colors: the +4 relic is a spare, not a cover, of the +2 one.
+    expect(plan.sell[0]?.verdict).toBe('spares');
+  });
+
+  it('a lower level never covers a higher one', () => {
+    const plus4 = relic(DEEP_RED, [PHYS_4]);
+    const plus3 = relic(DEEP_RED, [PHYS_3]);
+    const plan = planSell(
+      [plus4, plus3, plus3],
+      config([effectNeed(PHYS_4, { minLevel: 3, copies: 1, importance: 'low' })]),
+    );
+    // Both +3 go, the +4 stays: a +3 can't stand for it even though either meets the need.
+    expect(plan.kept.map((k) => k.spec)).toEqual([plus4]);
+    expect(plan.sell.reduce((n, e) => n + e.count, 0)).toBe(2);
+    expect(plan.sell.every((e) => e.spec === plus3)).toBe(true);
+  });
+
+  it('effect needs count their own kind of relic unless told otherwise', () => {
+    const deepPlus2 = relic(DEEP_RED, [PHYS_2]);
+    expect(
+      planSell([deepPlus2], config([effectNeed(PHYS_2, { importance: 'mustKeep' })])).kept,
+    ).toEqual([]);
+    expect(
+      planSell(
+        [deepPlus2],
+        config([effectNeed(PHYS_2, { importance: 'mustKeep', relics: 'deep' })]),
+      ).kept,
+    ).toHaveLength(1);
+    expect(
+      planSell([deepPlus2], config([effectNeed(PHYS_2, { importance: 'mustKeep', relics: 'any' })]))
+        .kept,
+    ).toHaveLength(1);
+  });
+});
+
 describe('curses', () => {
   it('curses can be wanted (Executor: sleep buildup + all resistances down)', () => {
     const cfg = config([

@@ -48,7 +48,11 @@ CSV_ writes the list with names and ids (UTF-8, opens in Excel).
   want them like any effect.
 - **Groups & combos:** needs live in named groups (shown as "kept by").
   A combo is effects you want on the **same** relic (a godroll); relics with
-  more effects match too, partial matches are weak backups. Each need can
+  more effects match too, partial matches are weak backups. Each combo member
+  (and each single effect) can accept lower levels ("Physical Attack Up +1 or
+  higher"); higher levels are kept first. A need's _Relics_ setting says
+  whether normal relics, Deep of Night relics or both count (deep relics also
+  roll many normal effects). Each need can
   tolerate curses the default says are dealbreakers.
 - **Stacking:** which levels stack in one build, from community data; change
   a family with a preset or a grid.

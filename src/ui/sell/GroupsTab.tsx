@@ -1,7 +1,15 @@
 import { useState } from 'react';
 import type { CharacterData } from '../../core/builds/characters.ts';
-import { type Need, RELIC_COLORS, type SellConfig } from '../../core/sell/config.ts';
+import {
+  type Need,
+  RELIC_COLORS,
+  RELIC_KIND_LABELS,
+  RELIC_KINDS,
+  type RelicKind,
+  type SellConfig,
+} from '../../core/sell/config.ts';
 import type { EffectIndex } from '../../core/sell/effects.ts';
+import { needRelicKind } from '../../core/sell/planner.ts';
 import {
   type ConfigUpdate,
   setGroups,
@@ -69,6 +77,40 @@ export function GroupsTab({
   );
 }
 
+/** Lowest level that counts, for effects with several levels ("+1 or higher"). */
+function LevelSelect({
+  index,
+  id,
+  value,
+  onChange,
+}: {
+  index: EffectIndex;
+  id: number;
+  value: number | undefined;
+  onChange: (level: number) => void;
+}) {
+  const meta = index.meta(id);
+  if (!meta) return null;
+  const levels = [...new Set(index.family(meta.family).map((m) => m.level))];
+  if (levels.length < 2) return null;
+  const max = Math.max(...levels);
+  return (
+    <select
+      className="level-select"
+      value={value ?? meta.level}
+      data-testid="need-level"
+      onChange={(e) => onChange(Number(e.target.value))}
+    >
+      {levels.map((l) => (
+        <option key={l} value={l}>
+          +{l}
+          {l < max ? ' or higher' : ''}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function GroupCard({ config, update, index, groupIndex }: Props & { groupIndex: number }) {
   const group = config.groups[groupIndex];
   const [combo, setCombo] = useState<number[]>([]);
@@ -116,6 +158,7 @@ function GroupCard({ config, update, index, groupIndex }: Props & { groupIndex: 
               <tr>
                 <th>Need</th>
                 <th>Min level</th>
+                <th>Relics</th>
                 <th>Importance</th>
                 <th>Copies</th>
                 <th>Count</th>
@@ -127,9 +170,6 @@ function GroupCard({ config, update, index, groupIndex }: Props & { groupIndex: 
             <tbody>
               {group.needs.map((need, ni) => {
                 const meta = need.kind === 'effect' ? index.meta(need.effect) : undefined;
-                const levels = meta
-                  ? [...new Set(index.family(meta.family).map((m) => m.level))]
-                  : [];
                 return (
                   // biome-ignore lint/suspicious/noArrayIndexKey: needs have no id
                   <tr key={ni} data-testid="need-row">
@@ -140,25 +180,49 @@ function GroupCard({ config, update, index, groupIndex }: Props & { groupIndex: 
                         <div className="combo">
                           <span className="combo__tag">Combo</span>
                           {need.effects.map((id) => (
-                            <EffectName key={id} meta={index.meta(id)} id={id} />
+                            <div key={id} className="combo__member">
+                              <EffectName meta={index.meta(id)} id={id} />
+                              <LevelSelect
+                                index={index}
+                                id={id}
+                                value={need.minLevels?.[id]}
+                                onChange={(level) =>
+                                  update((c) =>
+                                    updateNeed(c, groupIndex, ni, (n) =>
+                                      n.kind === 'combo'
+                                        ? { ...n, minLevels: { ...n.minLevels, [id]: level } }
+                                        : n,
+                                    ),
+                                  )
+                                }
+                              />
+                            </div>
                           ))}
                         </div>
                       )}
                     </td>
                     <td>
-                      {need.kind === 'effect' && levels.length > 1 && meta && (
-                        <select
-                          value={need.minLevel ?? meta.level}
-                          onChange={(e) => setNeed(ni, { minLevel: Number(e.target.value) })}
-                        >
-                          {levels.map((l) => (
-                            <option key={l} value={l}>
-                              +{l}
-                              {l === meta.level ? '' : ' or higher'}
-                            </option>
-                          ))}
-                        </select>
+                      {need.kind === 'effect' && (
+                        <LevelSelect
+                          index={index}
+                          id={need.effect}
+                          value={need.minLevel}
+                          onChange={(minLevel) => setNeed(ni, { minLevel })}
+                        />
                       )}
+                    </td>
+                    <td>
+                      <select
+                        value={needRelicKind(need, index)}
+                        data-testid="need-relics"
+                        onChange={(e) => setNeed(ni, { relics: e.target.value as RelicKind })}
+                      >
+                        {RELIC_KINDS.map((k) => (
+                          <option key={k} value={k}>
+                            {RELIC_KIND_LABELS[k]}
+                          </option>
+                        ))}
+                      </select>
                     </td>
                     <td>
                       <ImportanceSelect

@@ -11,6 +11,7 @@ import {
   type Importance,
   type NeedGroup,
   RELIC_COLORS,
+  type RelicKind,
 } from './config.ts';
 
 /** Imported needs start at this importance (chosen by the owner: a build's relics stay). */
@@ -38,14 +39,16 @@ export function seedFromBuild(build: Build, importance: Importance = SEED_IMPORT
   for (const relic of build.relics) {
     if (!relic || !rollRules().isSellable(relic.itemId)) continue;
     const color = colorName(relic.itemId);
-    const colors = color ? { colors: [color] } : {};
+    // The build uses this kind of relic: count only that kind (deep relics roll normal effects too).
+    const relics: RelicKind = catalog().relic(relic.itemId)?.deep ? 'deep' : 'normal';
+    const colors = color ? { colors: [color], relics } : { relics };
     // Aliases count as the effect they stand for (e.g. a unique relic's copy of a regular effect).
     const effects = relic.effects
       .filter((e): e is number => e !== null)
       .map((e) => catalog().canonicalEffect(e));
     const curses = relic.curses.filter((c): c is number => c !== null);
     if (effects.length >= 2) {
-      const key = `${[...effects].sort().join(',')}|${color}`;
+      const key = `${[...effects].sort().join(',')}|${color}|${relics}`;
       const combo = combos.get(key);
       if (combo) combo.copies++;
       else {
@@ -62,7 +65,7 @@ export function seedFromBuild(build: Build, importance: Importance = SEED_IMPORT
       }
     }
     for (const effect of effects) {
-      const key = `${effect}|${color}`;
+      const key = `${effect}|${color}|${relics}`;
       const single = singles.get(key);
       if (single) single.copies++;
       else {
