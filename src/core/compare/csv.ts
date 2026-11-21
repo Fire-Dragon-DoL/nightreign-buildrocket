@@ -15,10 +15,14 @@ const HEADER = [
 ];
 
 /** RFC 4180 field: quoted when it holds a comma, quote or line break. */
-const field = (value: string | number): string => {
+export const csvField = (value: string | number): string => {
   const text = String(value);
   return /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
 };
+
+/** Rows as CSV, starting with a UTF-8 BOM and using CRLF so Excel opens it right. */
+export const toCsv = (rows: (string | number)[][]): string =>
+  `\ufeff${rows.map((row) => row.map(csvField).join(',')).join('\r\n')}\r\n`;
 
 export const buildLabel = (build: Build): string =>
   `${build.name || '(unnamed)'} (${heroName(build.heroId)})`;
@@ -52,5 +56,5 @@ export function missingRelicsToCsv(result: MissingRelicsResult, builds: Build[])
       used.map((i) => (builds[i] ? buildLabel(builds[i]) : '')).join('; '),
     ];
   });
-  return `﻿${[HEADER, ...rows].map((row) => row.map(field).join(',')).join('\r\n')}\r\n`;
+  return toCsv([HEADER, ...rows]);
 }
