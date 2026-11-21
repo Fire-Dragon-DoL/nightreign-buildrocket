@@ -173,8 +173,9 @@ export function App() {
       )}
 
       <footer className="app__footer muted">
-        Nightreign Buildrocket v{__APP_VERSION__} · Personal project, not affiliated with
-        FromSoftware or Bandai Namco.
+        Nightreign Buildrocket v{__APP_VERSION__} · Free software under the{' '}
+        <a href="https://github.com/Fire-Dragon-DoL/nightreign-buildrocket">AGPL-3.0 (source)</a>.
+        Not affiliated with FromSoftware or Bandai Namco.
       </footer>
     </main>
   );

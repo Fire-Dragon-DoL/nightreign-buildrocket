@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Single-file HTML tool for Elden Ring Nightreign save files: extract builds, compare relic collections, plan what to sell.",
-  "license": "UNLICENSED",
+  "license": "AGPL-3.0-only",
   "type": "module",
   "packageManager": "pnpm@10.28.0",
   "engines": {

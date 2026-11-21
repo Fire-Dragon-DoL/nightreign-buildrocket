@@ -122,4 +122,12 @@ tools/         game data extractor (Python + a small Rust decompressor)
 
 ## License
 
-Personal project, not licensed for use by others. All rights reserved (see [LICENSE](LICENSE)). Not affiliated with FromSoftware or Bandai Namco.
+The code is free software under the [AGPL-3.0](LICENSE).
+
+The game data in `data/game/` (names, roll rules, icons) describes Elden Ring
+Nightreign and belongs to FromSoftware; the AGPL covers this project's code,
+not that data. `relic_effects.json` is MIT-licensed community data (see
+`data/game/relic_effects.LICENSE`). Kraken decompression in `tools/game-data`
+uses the MIT-licensed oozextract crate.
+
+Not affiliated with FromSoftware or Bandai Namco.
