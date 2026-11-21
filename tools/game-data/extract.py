@@ -215,7 +215,7 @@ def fmg_strings(b: bytes) -> dict[int, str]:
         for tid in range(first, last + 1):
             so = u64(b, offsets + (index + tid - first) * 8)
             if so:
-                text = utf16z(b, so)
+                text = ' '.join(utf16z(b, so).split())  # the game wraps long names with line breaks
                 if text and text != '%null%':
                     out[tid] = text
     return out

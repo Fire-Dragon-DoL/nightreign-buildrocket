@@ -87,7 +87,7 @@ it('exports the sell list as CSV, safest first', () => {
   const lines = csv.split('\r\n');
   expect(lines[0]?.startsWith('﻿Risk,Why,Sell,Owned,Relic,Relic ID,')).toBe(true);
   expect(lines[1]).toContain(
-    '0,nothing wanted,1,1,Grand Burning Scene,102,Red,no,3,[Relic] Magic Attack Power Up +2,7001502',
+    '0,nothing wanted,1,1,Grand Burning Scene,102,Red,no,3,Magic Attack Power Up +2,7001502',
   );
   expect(lines[2]).toContain('possible godroll');
 });

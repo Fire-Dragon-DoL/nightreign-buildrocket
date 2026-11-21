@@ -80,7 +80,8 @@ export function parseEffectName(raw: string): {
   let hero = 0;
   const name = raw
     .replace(/^\[(Special )?Relic\]\s*/, '')
-    .replace(/^\[(?:Special )?Relic - (\w+)\]\s*/, (_, h: string) => {
+    .replace(/^\[(?:(?:Special )?Relic - )?(\w+)\]\s*/, (tag: string, h: string) => {
+      if (!HERO_IDS.has(h)) return tag;
       hero = HERO_IDS.get(h) ?? 0;
       return `[${h}] `;
     })

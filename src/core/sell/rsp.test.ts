@@ -53,7 +53,7 @@ describe('.rsp files', () => {
     expect(doc.version).toBe(1);
     expect(doc.groups[0].needs[1].effect).toEqual({
       id: 7001502,
-      name: '[Relic] Magic Attack Power Up +2',
+      name: 'Magic Attack Power Up +2',
     });
     expect(doc.neverSell[0].name).toBe('Grand Burning Scene');
   });

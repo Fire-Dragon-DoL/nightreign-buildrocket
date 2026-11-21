@@ -85,6 +85,17 @@ export interface Catalog {
   vessels(): Iterable<VesselInfo>;
 }
 
+/**
+ * Community names, cleaned to read like the official ones: no "[Relic]" prefix, "[Relic - Hero]"
+ * becomes "[Hero]", and "- " (their stand-in for a comma) becomes ", ".
+ */
+export const cleanEffectName = (name: string): string =>
+  name
+    .replace(/^\[(?:Special )?Relic - (\w+)\]\s*/, '[$1] ')
+    .replace(/^\[(?:Special )?Relic\]\s*/, '')
+    .replace(/- /g, ', ')
+    .replace(/\.$/, '');
+
 const HERO_IDS: Record<string, number> = Object.fromEntries(
   Object.entries(HEROES).map(([id, name]) => [name, Number(id)]),
 );
@@ -135,7 +146,7 @@ export function buildCatalog(
     const heroes = e.heroes.flatMap((allowed, i) => (allowed ? [i + 1] : []));
     effects.set(n, {
       id: n,
-      name: e.name,
+      name: cleanEffectName(e.name),
       tier: e.tier as EffectTier,
       heroes,
       used: used.has(n),
@@ -149,15 +160,36 @@ export function buildCatalog(
     const heroes = d.heroes.length ? d.heroes.flatMap((h) => HERO_IDS[h] ?? []) : ALL_HEROES;
     const info: EffectInfo = {
       id: n,
-      name: d.name ?? known?.name ?? `Unknown effect (${n})`,
+      // Official name; the game's text lacks some (DLC heroes): fall back to the community one.
+      name: d.name?.replace(/\.$/, '') ?? known?.name ?? `Unknown effect (${n})`,
       tier: known?.tier ?? (d.debuff ? 'curse' : tierFromPools(n, rules, deep, curses)),
       heroes: known && !d.heroes.length ? known.heroes : heroes,
       used: used.has(n),
       rolls: rolls.has(n),
       filter: d.filter,
     };
-    if (d.same !== undefined && d.same !== n) info.same = d.same;
     effects.set(n, info);
+  }
+  // Aliases: one effect per group of ids the game treats the same. It is stored under one that
+  // rolls on random relics, else a regular (7-digit) id, else the lowest.
+  const groups = new Map<number, number[]>();
+  for (const [id, d] of Object.entries(details.effects)) {
+    if (d.same === undefined) continue;
+    const group = groups.get(d.same) ?? [d.same];
+    group.push(Number(id));
+    groups.set(d.same, group);
+  }
+  for (const ids of groups.values()) {
+    const rank = (id: number) => [rolls.has(id) ? 0 : 1, id >= 1_000_000 ? 0 : 1, id] as const;
+    const canonical = [...ids].sort((a, b) => {
+      const [ra, rb] = [rank(a), rank(b)];
+      return ra[0] - rb[0] || ra[1] - rb[1] || ra[2] - rb[2];
+    })[0] as number;
+    for (const id of ids) {
+      const info = effects.get(id);
+      if (info && id !== canonical) info.same = canonical;
+      else if (info) delete info.same;
+    }
   }
   const vessels = new Map<number, VesselInfo>();
   for (const [id, v] of Object.entries(data.vessels)) {
