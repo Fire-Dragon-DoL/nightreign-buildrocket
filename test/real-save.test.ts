@@ -11,9 +11,18 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { extractBuilds } from '../src/core/builds/builds.ts';
+import {
+  extractBuilds,
+  extractCharacterBuilds,
+  specKey,
+  toSpec,
+} from '../src/core/builds/builds.ts';
 import { catalog, rollRules } from '../src/core/catalog/catalog.ts';
 import { readSaveFile } from '../src/core/save/read-save.ts';
+import { emptyConfig, type SellConfig } from '../src/core/sell/config.ts';
+import { buildEffectIndex } from '../src/core/sell/effects.ts';
+import { planSell } from '../src/core/sell/planner.ts';
+import { seedFromBuild } from '../src/core/sell/seed.ts';
 
 function findSaveFile(): string | undefined {
   if (process.env.NR_SAVE_FILE) return resolve(process.env.NR_SAVE_FILE);
@@ -103,6 +112,71 @@ describe.skipIf(!savePath)('real save file', async () => {
     for (const c of save.characters) {
       const broken = c.relics.filter((r) => rules.check(r).length > 0);
       expect(broken).toEqual([]);
+    }
+  });
+
+  it('plans relic sales for every relic, quickly, keeping what the builds use', () => {
+    for (const c of save.characters) {
+      const pool = c.relics.map(toSpec);
+      const empty = planSell(pool, emptyConfig());
+      const listed = (p: ReturnType<typeof planSell>) =>
+        p.sell.reduce((n, e) => n + e.count, 0) +
+        p.kept.reduce((n, k) => n + k.count, 0) +
+        p.unsellable;
+      expect(listed(empty)).toBe(pool.length);
+      expect(empty.kept).toEqual([]);
+
+      // Every build at "must keep": every relic a build uses stays.
+      const config: SellConfig = {
+        ...emptyConfig(),
+        groups: extractCharacterBuilds(c).map((b) => {
+          const group = seedFromBuild(b);
+          return {
+            ...group,
+            needs: group.needs.map((n) => ({ ...n, importance: 'mustKeep' as const })),
+          };
+        }),
+      };
+      const start = performance.now();
+      const plan = planSell(pool, config);
+      expect(performance.now() - start).toBeLessThan(5000);
+      expect(listed(plan)).toBe(pool.length);
+      const risks = plan.sell.map((e) => e.risk);
+      expect(risks).toEqual([...risks].sort((a, b) => a - b));
+      for (const r of risks) expect(r).toBeLessThan(100);
+      // Each build relic's effects (same color) are still on some relic that is kept.
+      const left = new Map<string, number>();
+      for (const spec of pool) left.set(specKey(spec), (left.get(specKey(spec)) ?? 0) + 1);
+      for (const e of plan.sell) left.set(e.key, (left.get(e.key) ?? 0) - e.count);
+      const remaining = pool.filter((spec) => {
+        const n = left.get(specKey(spec)) ?? 0;
+        left.set(specKey(spec), n - 1);
+        return n > 0;
+      });
+      const color = (id: number) => catalog().relic(id)?.color;
+      const index = buildEffectIndex();
+      // Same family at the same or a higher level counts (higher levels count fully).
+      const covers = (have: (number | null)[], want: number) => {
+        const w = index.meta(want);
+        return have.some((h) => {
+          const m = h === null ? undefined : index.meta(h);
+          return (
+            h === want ||
+            (!!m && !!w && m.family === w.family && m.pool === w.pool && m.level >= w.level)
+          );
+        });
+      };
+      for (const build of extractCharacterBuilds(c)) {
+        for (const relic of build.relics) {
+          if (!relic) continue;
+          const effects = relic.effects.filter((e) => e !== null);
+          const kept = remaining.some(
+            (p) =>
+              color(p.itemId) === color(relic.itemId) && effects.every((e) => covers(p.effects, e)),
+          );
+          expect(kept, `${build.name}: ${specKey(relic)}`).toBe(true);
+        }
+      }
     }
   });
 
