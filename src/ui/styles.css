@@ -1,0 +1,213 @@
+:root {
+  --bg: #0e0f14;
+  --panel: #171922;
+  --panel-2: #1f2230;
+  --text: #e7e2d6;
+  --muted: #9a958a;
+  --accent: #d6b45a;
+  --error: #f07a6a;
+  --red: #c8473d;
+  --blue: #3f7ad1;
+  --yellow: #d6b45a;
+  --green: #4f9e5a;
+  --radius: 8px;
+  font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-weight: 600;
+}
+
+button {
+  font: inherit;
+  color: var(--bg);
+  background: var(--accent);
+  border: 0;
+  border-radius: var(--radius);
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
+button:hover {
+  filter: brightness(1.1);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.error {
+  color: var(--error);
+}
+
+.app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.app__header h1 {
+  color: var(--accent);
+  letter-spacing: 0.02em;
+}
+
+.app__header p {
+  margin: 0.25rem 0 0;
+}
+
+.loaders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.file-drop {
+  display: grid;
+  gap: 0.25rem;
+  padding: 1.25rem;
+  border: 2px dashed var(--panel-2);
+  border-radius: var(--radius);
+  background: var(--panel);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.file-drop:hover,
+.file-drop--active {
+  border-color: var(--accent);
+}
+
+.file-drop__label {
+  font-weight: 600;
+}
+
+.file-drop__hint {
+  color: var(--muted);
+  font-size: 0.85rem;
+  word-break: break-word;
+}
+
+.file-drop input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.status {
+  min-height: 1.5rem;
+}
+
+.message {
+  margin: 0;
+  color: var(--muted);
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.build-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.build {
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 0.75rem 1rem;
+}
+
+.build__header {
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.build__name {
+  font-size: 1.05rem;
+}
+
+.build__meta {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.build__relics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.5rem;
+}
+
+.relic {
+  background: var(--panel-2);
+  border-left: 4px solid var(--muted);
+  border-radius: 4px;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+.relic--red {
+  border-color: var(--red);
+}
+.relic--blue {
+  border-color: var(--blue);
+}
+.relic--yellow {
+  border-color: var(--yellow);
+}
+.relic--green {
+  border-color: var(--green);
+}
+.relic--empty {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.relic__name {
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+
+.relic__effects {
+  margin: 0;
+  padding-left: 1rem;
+}
+
+.relic__curse {
+  display: block;
+  color: var(--error);
+}
+
+.app__footer {
+  font-size: 0.8rem;
+  border-top: 1px solid var(--panel-2);
+  padding-top: 1rem;
+}
+
+a {
+  color: var(--accent);
+}
