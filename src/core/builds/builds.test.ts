@@ -105,7 +105,7 @@ describe('specKey', () => {
 
 describe('builds JSON document', () => {
   const builds = extractCharacterBuilds(character);
-  const doc = toBuildsDocument(builds, new Date('2026-01-01T00:00:00Z'));
+  const doc = toBuildsDocument(builds, [], new Date('2026-01-01T00:00:00Z'));
 
   it('writes every game id as { id, name }', () => {
     expect(doc.version).toBe(2);
@@ -125,7 +125,25 @@ describe('builds JSON document', () => {
     expect(parseBuildsDocument(JSON.stringify(doc))).toEqual({
       exportedAt: '2026-01-01T00:00:00.000Z',
       builds,
+      inventories: [],
     });
+  });
+
+  it('round-trips inventories, written with names', () => {
+    const relics = character.relics.map(({ itemId, effects, curses }) => ({
+      itemId,
+      effects,
+      curses,
+    }));
+    const withInventory = toBuildsDocument(builds, [{ character: 'Tester', relics }]);
+    expect(withInventory.version).toBe(2);
+    expect(withInventory.inventories?.[0]?.relics[0]?.relic).toEqual({
+      id: 100,
+      name: 'Delicate Burning Scene',
+    });
+    expect(parseBuildsDocument(JSON.stringify(withInventory)).inventories).toEqual([
+      { character: 'Tester', relics },
+    ]);
   });
 
   it('accepts ids without names', () => {

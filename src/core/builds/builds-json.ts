@@ -7,6 +7,9 @@ import type { Build, RelicSpec } from './builds.ts';
  * Version 2 (written): every game id is an object `{ id, name }`. `name` is
  * only there for humans reading the file; it is optional and ignored on
  * import, so files stay valid if names change.
+ * Optional `inventories` (added later, still version 2 since older readers
+ * simply ignore it): every relic each exported character owns, so a builds
+ * file can stand in for a save when looking for missing relics.
  * Version 1 (read only): plain ids.
  */
 export const BUILDS_FORMAT = 'nightreign-buildrocket/builds';
@@ -31,11 +34,23 @@ export interface BuildJson {
   relics: (BuildRelicJson | null)[];
 }
 
+export interface InventoryJson {
+  character: string;
+  relics: BuildRelicJson[];
+}
+
 export interface BuildsDocument {
   format: typeof BUILDS_FORMAT;
   version: 2;
   exportedAt: string;
   builds: BuildJson[];
+  inventories?: InventoryJson[];
+}
+
+/** Every relic one character owns, described by content. */
+export interface Inventory {
+  character: string;
+  relics: RelicSpec[];
 }
 
 interface BuildsDocumentV1 {
@@ -57,8 +72,12 @@ function relicToJson(relic: RelicSpec): BuildRelicJson {
   };
 }
 
-export function toBuildsDocument(builds: Build[], now = new Date()): BuildsDocument {
-  return {
+export function toBuildsDocument(
+  builds: Build[],
+  inventories: Inventory[] = [],
+  now = new Date(),
+): BuildsDocument {
+  const doc: BuildsDocument = {
     format: BUILDS_FORMAT,
     version: 2,
     exportedAt: now.toISOString(),
@@ -70,6 +89,13 @@ export function toBuildsDocument(builds: Build[], now = new Date()): BuildsDocum
       relics: b.relics.map((r) => (r ? relicToJson(r) : null)),
     })),
   };
+  if (inventories.length > 0) {
+    doc.inventories = inventories.map((inv) => ({
+      character: inv.character,
+      relics: inv.relics.map(relicToJson),
+    }));
+  }
+  return doc;
 }
 
 export class BuildsDocumentError extends Error {
@@ -91,27 +117,36 @@ const triple = (values: unknown, what: string): Triple => {
   return [0, 1, 2].map((i) => idOrNull(list[i] ?? null, what)) as Triple;
 };
 
+const relicFromJson = (r: BuildRelicJson): RelicSpec => ({
+  itemId: idOf(r.relic, 'relic'),
+  effects: triple(r.effects, 'effect'),
+  curses: triple(r.curses, 'curse'),
+});
+
 function buildFromJson(b: BuildJson): Build {
   return {
     character: String(b.character ?? ''),
     heroId: idOf(b.hero, 'hero'),
     name: String(b.name ?? ''),
     vesselId: idOf(b.vessel, 'vessel'),
-    relics: (b.relics ?? []).map((r) =>
-      r
-        ? {
-            itemId: idOf(r.relic, 'relic'),
-            effects: triple(r.effects, 'effect'),
-            curses: triple(r.curses, 'curse'),
-          }
-        : null,
-    ),
+    relics: (b.relics ?? []).map((r) => (r ? relicFromJson(r) : null)),
   };
+}
+
+function inventoriesFromJson(value: unknown): Inventory[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) throw new BuildsDocumentError('Inventories must be a list.');
+  return (value as InventoryJson[]).map((inv) => {
+    if (!Array.isArray(inv?.relics)) throw new BuildsDocumentError('Inventory without relics.');
+    return { character: String(inv.character ?? ''), relics: inv.relics.map(relicFromJson) };
+  });
 }
 
 export interface ParsedBuilds {
   exportedAt: string;
   builds: Build[];
+  /** Empty for files exported before inventories existed. */
+  inventories: Inventory[];
 }
 
 /** Read a builds file of any supported version into the internal model. */
@@ -128,9 +163,13 @@ export function parseBuildsDocument(json: string): ParsedBuilds {
   }
   if (!Array.isArray(doc.builds)) throw new BuildsDocumentError('Missing builds list.');
   const exportedAt = String(doc.exportedAt ?? '');
-  if (doc.version === 1) return { exportedAt, builds: doc.builds as Build[] };
+  if (doc.version === 1) return { exportedAt, builds: doc.builds as Build[], inventories: [] };
   if (doc.version === 2) {
-    return { exportedAt, builds: (doc.builds as BuildJson[]).map(buildFromJson) };
+    return {
+      exportedAt,
+      builds: (doc.builds as BuildJson[]).map(buildFromJson),
+      inventories: inventoriesFromJson((doc as Partial<BuildsDocument>).inventories),
+    };
   }
   throw new BuildsDocumentError(`Unsupported version ${doc.version}.`);
 }
