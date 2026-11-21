@@ -33,6 +33,8 @@ export interface EffectMeta {
   /** Hero id for hero-only effects ("[Relic - Duchess] …"), else 0. */
   hero: number;
   pool: EffectPool;
+  /** Rolls on random relics (false: only on unique relics). */
+  rolls: boolean;
 }
 
 /** Editable effect rules (the defaults ship with the app, a .rsp file can override them). */
@@ -92,8 +94,11 @@ const poolOf = (tier: EffectInfo['tier']): EffectPool =>
 
 export interface EffectIndex {
   rules: EffectRules;
+  /** Meta of an effect; an alias id gets the meta of the effect it is identical to. */
   meta(id: number): EffectMeta | undefined;
-  /** Every known effect (normal, deep, curse; special ones included). */
+  /** The id an effect counts as everywhere (aliases → their effect). */
+  canonical(id: number): number;
+  /** Every effect a relic can carry, aliases folded in (normal, deep, curse, unique-only). */
   all(): EffectMeta[];
   /** Effects of a family, by level then id. */
   family(name: string): EffectMeta[];
@@ -115,16 +120,23 @@ export interface EffectIndex {
 
 export function buildEffectIndex(rules: EffectRules = defaultEffectRules()): EffectIndex {
   const metas = new Map<number, EffectMeta>();
+  const alias = (id: number) => catalog().canonicalEffect(id);
   for (const info of catalog().effects()) {
+    // Effects no relic carries are leftovers of the names file; aliases fold into their effect.
+    if (!info.used || alias(info.id) !== info.id) continue;
     const parsed = parseEffectName(info.name);
+    // Official names carry no hero: take it from the data when only one hero can use the effect.
+    const hero = parsed.hero || (info.heroes.length === 1 ? (info.heroes[0] ?? 0) : 0);
+    const tag = hero && !parsed.hero ? `[${HEROES[hero]}] ` : '';
     metas.set(info.id, {
       id: info.id,
-      name: parsed.name,
-      family: parsed.family,
+      name: tag + parsed.name,
+      family: tag + parsed.family,
       level: parsed.level,
       tier: info.tier,
-      hero: parsed.hero,
+      hero,
       pool: poolOf(info.tier),
+      rolls: info.rolls,
     });
   }
   // Normal and deep effects colliding on one family + level are different effects: split the deep side.
@@ -156,7 +168,7 @@ export function buildEffectIndex(rules: EffectRules = defaultEffectRules()): Eff
       canonical.set(m.id, c);
     }
   }
-  const canon = (id: number) => canonical.get(id) ?? id;
+  const canon = (id: number) => canonical.get(alias(id)) ?? alias(id);
   const pairKey = (a: number, b: number) => (a < b ? `${a}|${b}` : `${b}|${a}`);
   const noStack = new Set(rules.noStack.map(([a, b]) => pairKey(canon(a), canon(b))));
   const selfRule = (id: number): boolean | undefined =>
@@ -164,7 +176,8 @@ export function buildEffectIndex(rules: EffectRules = defaultEffectRules()): Eff
 
   const index: EffectIndex = {
     rules,
-    meta: (id) => metas.get(id),
+    meta: (id) => metas.get(alias(id)),
+    canonical: alias,
     all: () => [...metas.values()],
     family: (name) => families.get(name) ?? [],
     families: () => [...families.keys()],

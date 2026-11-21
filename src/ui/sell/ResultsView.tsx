@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { effectName } from '../../core/catalog/catalog.ts';
 import { IMPORTANCE_LABELS } from '../../core/sell/config.ts';
 import type { SellPlan } from '../../core/sell/planner.ts';
 import type { SellSection } from '../../core/sell/sections.ts';
@@ -16,12 +15,10 @@ const FLAG_LABELS = { godroll: 'Possible godroll', stackingUnknown: 'Stacking un
 const riskClass = (risk: number) =>
   risk < 20 ? 'risk--low' : risk < 60 ? 'risk--mid' : 'risk--high';
 
-const searchText = (filters: number[][]) =>
+const searchText = (filters: string[][]) =>
   filters.length === 0
     ? 'no effect filter (show all of this kind)'
-    : filters
-        .map((f) => (f.length > 1 ? `(${f.map(effectName).join(' or ')})` : effectName(f[0] ?? 0)))
-        .join(' and ');
+    : filters.map((f) => (f.length > 1 ? `(${f.join(' or ')})` : (f[0] ?? ''))).join(' and ');
 
 export function ResultsView({ plan, sections }: Props) {
   const [maxRisk, setMaxRisk] = useState(99);

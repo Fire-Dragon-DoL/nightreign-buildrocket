@@ -39,7 +39,10 @@ export function seedFromBuild(build: Build, importance: Importance = SEED_IMPORT
     if (!relic || !rollRules().isSellable(relic.itemId)) continue;
     const color = colorName(relic.itemId);
     const colors = color ? { colors: [color] } : {};
-    const effects = relic.effects.filter((e): e is number => e !== null);
+    // Aliases count as the effect they stand for (e.g. a unique relic's copy of a regular effect).
+    const effects = relic.effects
+      .filter((e): e is number => e !== null)
+      .map((e) => catalog().canonicalEffect(e));
     const curses = relic.curses.filter((c): c is number => c !== null);
     if (effects.length >= 2) {
       const key = `${[...effects].sort().join(',')}|${color}`;

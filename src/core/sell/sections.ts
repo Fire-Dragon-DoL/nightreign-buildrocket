@@ -3,7 +3,7 @@
  * normal → color → size), with a suggested in-game search per group.
  */
 import { type RelicSpec, specKey } from '../builds/builds.ts';
-import { catalog, RELIC_COLOR_NAMES, rollRules } from '../catalog/catalog.ts';
+import { catalog, effectName, RELIC_COLOR_NAMES, rollRules } from '../catalog/catalog.ts';
 import type { SellEntry, SellPlan } from './planner.ts';
 
 /** In-game search limits: up to 3 AND-ed filters, each OR-ing up to 4 effects. */
@@ -11,8 +11,12 @@ export const MAX_FILTERS = 3;
 export const MAX_EFFECTS_PER_FILTER = 4;
 
 export interface SearchSuggestion {
-  /** AND of filters; a filter matches a relic carrying any of its effects. Empty = no filter. */
-  filters: number[][];
+  /**
+   * AND of filters; a filter matches a relic carrying any of its terms. Terms are the game's own
+   * search filter names when extracted (one filter may cover several effects), else effect names.
+   * Empty = no filter.
+   */
+  filters: string[][];
   /** Relics of this group the search shows (owned, sellable or not). */
   shows: number;
   /** Of those, copies to sell. */
@@ -42,17 +46,18 @@ const keyOf = (k: ReturnType<typeof sectionKey>) => `${k.deep ? 'D' : 'N'}|${k.c
 const COLOR_ORDER = ['Red', 'Blue', 'Yellow', 'Green'];
 
 interface Item {
-  effects: number[];
+  /** Search terms the relic matches. */
+  effects: string[];
   /** Owned copies of this exact relic. */
   owned: number;
   /** Copies to sell. */
   sell: number;
 }
 
-const matches = (filters: number[][], effects: number[]) =>
+const matches = (filters: string[][], effects: string[]) =>
   filters.every((filter) => filter.some((e) => effects.includes(e)));
 
-function evaluate(filters: number[][], items: Item[]): { shows: number; sell: number } {
+function evaluate(filters: string[][], items: Item[]): { shows: number; sell: number } {
   let shows = 0;
   let sell = 0;
   for (const item of items) {
@@ -68,13 +73,13 @@ const score = (r: { shows: number; sell: number }) => r.sell - (r.shows - r.sell
 
 /** Greedy search: add one effect at a time (to a filter, or as a new filter) while it helps. */
 export function suggestSearch(items: Item[]): SearchSuggestion {
-  let filters: number[][] = [];
+  let filters: string[][] = [];
   let best = evaluate(filters, items);
   const candidates = [...new Set(items.filter((i) => i.sell > 0).flatMap((i) => i.effects))];
   for (;;) {
-    let next: number[][] | undefined;
+    let next: string[][] | undefined;
     let nextResult = best;
-    const consider = (f: number[][]) => {
+    const consider = (f: string[][]) => {
       const r = evaluate(f, items);
       if (score(r) > score(nextResult)) {
         next = f;
@@ -93,6 +98,16 @@ export function suggestSearch(items: Item[]): SearchSuggestion {
     best = nextResult;
   }
   return { filters, ...best };
+}
+
+/** What the in-game search calls an effect: its search filter's name, else the effect's name. */
+export function searchTerm(effect: number): string {
+  const info = catalog().effect(catalog().canonicalEffect(effect));
+  const filter = info?.filter;
+  return (
+    (filter !== undefined && filter > 0 && catalog().filterName(filter)) ||
+    effectName(catalog().canonicalEffect(effect))
+  );
 }
 
 export function sectionPlan(plan: SellPlan, pool: RelicSpec[]): SellSection[] {
@@ -121,7 +136,7 @@ export function sectionPlan(plan: SellPlan, pool: RelicSpec[]): SellSection[] {
     const byKey = items.get(key) ?? new Map<string, Item>();
     const k = specKey(spec);
     const item = byKey.get(k) ?? {
-      effects: spec.effects.filter((e): e is number => e !== null),
+      effects: [...new Set(spec.effects.filter((e): e is number => e !== null).map(searchTerm))],
       owned: 0,
       sell: sellCount.get(k) ?? 0,
     };

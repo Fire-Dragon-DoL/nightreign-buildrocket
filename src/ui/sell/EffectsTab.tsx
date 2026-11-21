@@ -295,6 +295,7 @@ export function EffectsTab({ kind, config, update, index, owned }: Props) {
                         )}
                         <td className="muted">
                           {[
+                            !m.rolls && 'unique relics only',
                             !index.stackingKnown(m.id) && 'stacking unknown',
                             index.stackingKnown(m.id) &&
                               !index.stacks(m.id, m.id) &&

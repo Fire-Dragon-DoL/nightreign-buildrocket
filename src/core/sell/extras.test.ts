@@ -56,17 +56,17 @@ describe('seed from builds', () => {
 describe('search suggestions', () => {
   it('finds a filter that shows the sell rows and few keepers', () => {
     const s = suggestSearch([
-      { effects: [1, 2], owned: 1, sell: 1 },
-      { effects: [1, 3], owned: 2, sell: 2 },
-      { effects: [4], owned: 3, sell: 0 },
-      { effects: [5, 2], owned: 1, sell: 0 },
+      { effects: ['a', 'b'], owned: 1, sell: 1 },
+      { effects: ['a', 'c'], owned: 2, sell: 2 },
+      { effects: ['d'], owned: 3, sell: 0 },
+      { effects: ['e', 'b'], owned: 1, sell: 0 },
     ]);
-    expect(s.filters).toEqual([[1]]);
+    expect(s.filters).toEqual([['a']]);
     expect(s).toMatchObject({ shows: 3, sell: 3 });
   });
 
   it('needs no filter when everything goes', () => {
-    expect(suggestSearch([{ effects: [1], owned: 2, sell: 2 }]).filters).toEqual([]);
+    expect(suggestSearch([{ effects: ['a'], owned: 2, sell: 2 }]).filters).toEqual([]);
   });
 
   it('groups sell lines by deep, color and size', () => {

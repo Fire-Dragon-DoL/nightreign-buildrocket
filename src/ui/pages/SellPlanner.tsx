@@ -52,8 +52,9 @@ function ownedCounts(pool: RelicSpec[]): OwnedCounts {
   for (const relic of pool) {
     const color = COLOR_INDEX[catalog().relic(relic.itemId)?.color ?? -1];
     if (color === undefined) continue;
-    for (const id of [...relic.effects, ...relic.curses]) {
-      if (id === null) continue;
+    for (const raw of [...relic.effects, ...relic.curses]) {
+      if (raw === null) continue;
+      const id = catalog().canonicalEffect(raw);
       const row = counts.get(id) ?? [0, 0, 0, 0];
       row[color] = (row[color] ?? 0) + 1;
       counts.set(id, row);

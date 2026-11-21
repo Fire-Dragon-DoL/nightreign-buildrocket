@@ -2,7 +2,14 @@
  * Game data catalog: names and properties of relics, effects, vessels, heroes.
  * Source: data/game/relic_effects.json (see data/game/README.md).
  */
-import { type RawRelicEffects, rawRelicEffects, rawRollRules } from './game-data.ts';
+import {
+  type RawEffectDetails,
+  type RawRelicEffects,
+  type RawRollRules,
+  rawEffectDetails,
+  rawRelicEffects,
+  rawRollRules,
+} from './game-data.ts';
 import { createRollRules, type RollRules } from './rules.ts';
 
 /** Relic / vessel slot colors as stored in the data. */
@@ -44,6 +51,14 @@ export interface EffectInfo {
   tier: EffectTier;
   /** Hero ids (1-10) that can use this effect. */
   heroes: number[];
+  /** Some relic can carry it (false: only in the names file, on no relic). */
+  used: boolean;
+  /** Rolls on random relics (false: only fixed on unique relics, or used nowhere). */
+  rolls: boolean;
+  /** The effect it is identical to in game (same SpEffects), when this id is an alias. */
+  same?: number;
+  /** In-game relic search filter it falls under, when known. */
+  filter?: number;
 }
 
 export interface VesselInfo {
@@ -60,13 +75,38 @@ export interface VesselInfo {
 export interface Catalog {
   relic(id: number): RelicInfo | undefined;
   effect(id: number): EffectInfo | undefined;
+  /** The id an effect counts as: itself, or the effect it is an alias of. */
+  canonicalEffect(id: number): number;
+  /** Name of an in-game relic search filter. */
+  filterName(id: number): string | undefined;
   vessel(id: number): VesselInfo | undefined;
   relics(): Iterable<RelicInfo>;
   effects(): Iterable<EffectInfo>;
   vessels(): Iterable<VesselInfo>;
 }
 
-export function buildCatalog(data: RawRelicEffects): Catalog {
+const HERO_IDS: Record<string, number> = Object.fromEntries(
+  Object.entries(HEROES).map(([id, name]) => [name, Number(id)]),
+);
+const ALL_HEROES = Object.keys(HEROES).map(Number);
+
+/** Tier of an effect known only from the game data: from the pools it rolls in. */
+function tierFromPools(
+  id: number,
+  rules: RawRollRules,
+  deep: Set<number>,
+  curses: Set<number>,
+): EffectTier {
+  if (curses.has(id)) return 'curse';
+  if (deep.has(id)) return 'deep';
+  return rules.pools.some((pool) => pool.length > 1 && pool.includes(id)) ? 'normal' : 'special';
+}
+
+export function buildCatalog(
+  data: RawRelicEffects,
+  rules: RawRollRules = rawRollRules,
+  details: RawEffectDetails = rawEffectDetails,
+): Catalog {
   const relics = new Map<number, RelicInfo>();
   for (const [id, r] of Object.entries(data.relics)) {
     relics.set(Number(id), {
@@ -76,10 +116,48 @@ export function buildCatalog(data: RawRelicEffects): Catalog {
       color: r.color as RelicColor,
     });
   }
+  // Which effects relics can carry, and which roll on random relics (from the game's tables).
+  const used = new Set<number>();
+  const rolls = new Set<number>();
+  for (const pool of rules.pools) {
+    for (const id of pool) {
+      used.add(id);
+      if (pool.length > 1) rolls.add(id);
+    }
+  }
+  const poolOf = (table: number) => rules.pools[rules.tables[String(table)] ?? -1] ?? [];
+  const curses = new Set(poolOf(rules.deep_pools.curses));
+  const deep = new Set([rules.deep_pools.needs_curse, ...rules.deep_pools.other].flatMap(poolOf));
+
   const effects = new Map<number, EffectInfo>();
   for (const [id, e] of Object.entries(data.effects)) {
+    const n = Number(id);
     const heroes = e.heroes.flatMap((allowed, i) => (allowed ? [i + 1] : []));
-    effects.set(Number(id), { id: Number(id), name: e.name, tier: e.tier as EffectTier, heroes });
+    effects.set(n, {
+      id: n,
+      name: e.name,
+      tier: e.tier as EffectTier,
+      heroes,
+      used: used.has(n),
+      rolls: rolls.has(n),
+    });
+  }
+  // Official data, when extracted: names (also for effects the names file lacks), aliases, filters.
+  for (const [id, d] of Object.entries(details.effects)) {
+    const n = Number(id);
+    const known = effects.get(n);
+    const heroes = d.heroes.length ? d.heroes.flatMap((h) => HERO_IDS[h] ?? []) : ALL_HEROES;
+    const info: EffectInfo = {
+      id: n,
+      name: d.name ?? known?.name ?? `Unknown effect (${n})`,
+      tier: known?.tier ?? (d.debuff ? 'curse' : tierFromPools(n, rules, deep, curses)),
+      heroes: known && !d.heroes.length ? known.heroes : heroes,
+      used: used.has(n),
+      rolls: rolls.has(n),
+      filter: d.filter,
+    };
+    if (d.same !== undefined && d.same !== n) info.same = d.same;
+    effects.set(n, info);
   }
   const vessels = new Map<number, VesselInfo>();
   for (const [id, v] of Object.entries(data.vessels)) {
@@ -94,6 +172,8 @@ export function buildCatalog(data: RawRelicEffects): Catalog {
   return {
     relic: (id) => relics.get(id),
     effect: (id) => effects.get(id),
+    canonicalEffect: (id) => effects.get(id)?.same ?? id,
+    filterName: (id) => details.filters[String(id)]?.name ?? undefined,
     vessel: (id) => vessels.get(id),
     relics: () => relics.values(),
     effects: () => effects.values(),

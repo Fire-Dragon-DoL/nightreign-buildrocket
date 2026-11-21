@@ -235,8 +235,21 @@ export function parseRsp(text: string): ParsedRsp {
   });
   const neverSell = list(doc.neverSell, 'neverSell').map((r) => idOf(r, 'never-sell relic'));
 
-  const config: SellConfig = { effectRules, groups, neverSell };
   const warnings: string[] = [];
+  // Aliases (same effect in game, other id) are stored as the effect they stand for.
+  const canonical = (id: number) => {
+    const c = catalog().canonicalEffect(id);
+    if (c !== id) warnings.push(`Effect id ${id} is the same effect as ${c}: counted as ${c}.`);
+    return c;
+  };
+  for (const group of groups) {
+    group.needs = group.needs.map((n) =>
+      n.kind === 'effect'
+        ? { ...n, effect: canonical(n.effect) }
+        : { ...n, effects: n.effects.map(canonical) },
+    );
+  }
+  const config: SellConfig = { effectRules, groups, neverSell };
   for (const id of configEffectIds(config)) {
     if (!catalog().effect(id)) warnings.push(`Unknown effect id ${id} (kept as is).`);
   }
