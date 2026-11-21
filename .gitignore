@@ -1,0 +1,13 @@
+node_modules/
+dist/
+release/
+test-results/
+playwright-report/
+*.tsbuildinfo
+.DS_Store
+
+# Real save files are personal (they contain your Steam ID) and must never be
+# committed. Put yours in test/fixtures/local/ or point NR_SAVE_FILE at it.
+test/fixtures/local/
+*.sl2
+*.co2
