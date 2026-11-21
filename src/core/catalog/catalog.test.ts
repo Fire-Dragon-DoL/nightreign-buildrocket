@@ -83,6 +83,16 @@ describe('official effect data (data/game/effect_details.json)', () => {
     expect(catalog().canonicalEffect(100000)).toBe(7032200);
   });
 
+  it('labels a deep effect sharing its name with a different normal one', () => {
+    expect(catalog().effect(7000090)?.name).toBe('Increased Maximum HP');
+    expect(catalog().effect(6610400)?.name).toBe('Increased Maximum HP (Deep of Night)');
+    expect(catalog().effect(6610600)?.name).toBe('Increased Maximum Stamina (Deep of Night)');
+    // The whole deep family is labelled, before the level.
+    expect(catalog().effect(6611201)?.name).toBe('Improved Sorceries (Deep of Night) +1');
+    // Families split by level only (normal +0..+2, deep +3/+4) keep their names.
+    expect(catalog().effect(6001500)?.name).toBe('Magic Attack Power Up +3');
+  });
+
   it('knows the in-game search filter of each effect', () => {
     const filter = catalog().effect(6001501)?.filter ?? 0;
     expect(catalog().filterName(filter)).toBe('Magic Attack Power Up');

@@ -45,7 +45,9 @@ describe('effect families', () => {
 
   it('splits same-named normal and deep effects at the same level', () => {
     expect(index.meta(7000090)?.family).toBe('Increased Maximum HP');
-    expect(index.meta(6610400)?.family).toBe('Increased Maximum HP (deep)');
+    expect(index.meta(6610400)?.family).toBe('Increased Maximum HP (Deep of Night)');
+    expect(index.stacks(6610400, 6610400)).toBe(true);
+    expect(index.stacks(7000090, 7000090)).toBe(false);
   });
 
   it('treats two ids with the same name and level as one effect', () => {

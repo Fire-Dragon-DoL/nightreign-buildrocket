@@ -208,6 +208,28 @@ export function buildCatalog(
       else if (info) delete info.same;
     }
   }
+  // Same name, different effects (e.g. "Increased Maximum HP": +5 Vigor on normal relics, ×1.1 max
+  // HP on deep ones): label the whole Deep of Night family, before its level, so the two can't be
+  // confused anywhere ("Improved Sorceries (Deep of Night) +1").
+  const LEVEL = /\s*(\+\d+)$/;
+  const familyOf = (name: string) => name.replace(LEVEL, '');
+  const clash = new Map<string, Map<string, Set<EffectTier>>>();
+  for (const e of effects.values()) {
+    if (!e.used || e.same !== undefined || (e.tier !== 'deep' && e.tier !== 'normal')) continue;
+    const levels = clash.get(familyOf(e.name)) ?? new Map<string, Set<EffectTier>>();
+    const level = e.name.match(LEVEL)?.[1] ?? '+0';
+    levels.set(level, (levels.get(level) ?? new Set()).add(e.tier));
+    clash.set(familyOf(e.name), levels);
+  }
+  const labelled = new Set(
+    [...clash].filter(([, levels]) => [...levels.values()].some((t) => t.size > 1)).map(([f]) => f),
+  );
+  for (const e of effects.values()) {
+    if (e.tier !== 'deep' || !labelled.has(familyOf(e.name))) continue;
+    const level = e.name.match(LEVEL)?.[1];
+    e.name = `${familyOf(e.name)} (Deep of Night)${level ? ` ${level}` : ''}`;
+  }
+
   const vessels = new Map<number, VesselInfo>();
   for (const [id, v] of Object.entries(data.vessels)) {
     vessels.set(Number(id), {
