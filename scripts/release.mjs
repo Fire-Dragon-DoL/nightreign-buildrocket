@@ -2,7 +2,7 @@
 /**
  * Cut a release from your machine (no paid CI needed):
  *
- *   pnpm release patch|minor|major|<x.y.z> [--dry-run] [--include-local-data]
+ *   pnpm release patch|minor|major|<x.y.z> [--dry-run]
  *
  * 1. checks you are on an up-to-date, clean `main`
  * 2. runs the full check suite (lint, types, unit, build, e2e)
@@ -17,7 +17,6 @@ import { execFileSync } from 'node:child_process';
 import { copyFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { guardLocalData } from './local-data.mjs';
 
 const args = process.argv.slice(2);
 const dryRun = args.includes('--dry-run');
@@ -31,7 +30,6 @@ const fail = (msg) => {
   process.exit(1);
 };
 
-guardLocalData(args);
 if (!bump) fail('Usage: pnpm release patch|minor|major|<x.y.z> [--dry-run]');
 
 // 1. Repository state

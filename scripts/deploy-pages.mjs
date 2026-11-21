@@ -3,7 +3,7 @@
  * Publish the built app to GitHub Pages from your machine (free for public
  * repos, no Actions minutes used):
  *
- *   pnpm deploy:pages [--include-local-data]
+ *   pnpm deploy:pages
  *
  * Builds dist/index.html and force-pushes it as the only file on the
  * `gh-pages` branch. One-time setup: GitHub repo → Settings → Pages →
@@ -13,9 +13,6 @@ import { execFileSync } from 'node:child_process';
 import { copyFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { guardLocalData } from './local-data.mjs';
-
-guardLocalData(process.argv.slice(2));
 
 const run = (cmd, args, cwd) => execFileSync(cmd, args, { stdio: 'inherit', cwd });
 const capture = (cmd, args) => execFileSync(cmd, args, { encoding: 'utf8' }).trim();
