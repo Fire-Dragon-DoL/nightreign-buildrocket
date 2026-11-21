@@ -77,6 +77,10 @@ describe('official effect data (data/game/effect_details.json)', () => {
     expect(catalog().canonicalEffect(10002)).toBe(7035900);
     expect(catalog().canonicalEffect(7001409)).toBe(7001402);
     expect(catalog().canonicalEffect(7126002)).toBe(7126000);
+    // Confirmed by the owner: an extra hidden SpEffect, same effect.
+    expect(catalog().canonicalEffect(11002)).toBe(7032400);
+    expect(catalog().canonicalEffect(10001)).toBe(7032200);
+    expect(catalog().canonicalEffect(100000)).toBe(7032200);
   });
 
   it('knows the in-game search filter of each effect', () => {

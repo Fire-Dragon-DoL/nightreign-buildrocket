@@ -96,6 +96,15 @@ export const cleanEffectName = (name: string): string =>
     .replace(/- /g, ', ')
     .replace(/\.$/, '');
 
+/**
+ * Identical effects the extracted data can't prove identical, confirmed by the owner: unique-relic
+ * copies that apply the regular effect plus one extra hidden SpEffect (a marker, not a change).
+ */
+const CONFIRMED_ALIASES: Record<number, number> = {
+  11002: 7032400, // Silver Tear: [Wylder] Art gauge greatly filled when ability is activated (+9760)
+  10001: 7032200, // Taking attacks improves attack power (+7032201, +9762)
+};
+
 const HERO_IDS: Record<string, number> = Object.fromEntries(
   Object.entries(HEROES).map(([id, name]) => [name, Number(id)]),
 );
@@ -173,11 +182,19 @@ export function buildCatalog(
   // Aliases: one effect per group of ids the game treats the same. It is stored under one that
   // rolls on random relics, else a regular (7-digit) id, else the lowest.
   const groups = new Map<number, number[]>();
-  for (const [id, d] of Object.entries(details.effects)) {
-    if (d.same === undefined) continue;
-    const group = groups.get(d.same) ?? [d.same];
-    group.push(Number(id));
-    groups.set(d.same, group);
+  const sameAs: [number, number][] = [
+    ...Object.entries(details.effects).flatMap(([id, d]) =>
+      d.same === undefined ? [] : [[Number(id), d.same] as [number, number]],
+    ),
+    ...Object.entries(CONFIRMED_ALIASES).map(
+      ([id, same]) => [Number(id), same] as [number, number],
+    ),
+  ];
+  for (const [id, same] of sameAs) {
+    if (!effects.has(id) || !effects.has(same)) continue;
+    const group = groups.get(same) ?? [same];
+    group.push(id);
+    groups.set(same, group);
   }
   for (const ids of groups.values()) {
     const rank = (id: number) => [rolls.has(id) ? 0 : 1, id >= 1_000_000 ? 0 : 1, id] as const;
