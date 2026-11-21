@@ -1,8 +1,9 @@
 import type { RelicSpec } from '../../core/builds/builds.ts';
-import { effectName, relicName } from '../../core/catalog/catalog.ts';
+import { catalog, effectName, relicName } from '../../core/catalog/catalog.ts';
 import { IMPORTANCE_LABELS } from '../../core/sell/config.ts';
 import type { Verdict, WhyLine } from '../../core/sell/planner.ts';
 import { GameIcon } from '../components/GameIcon.tsx';
+import { colorClass, RelicEffects } from '../components/RelicParts.tsx';
 import { relicIcon } from '../icons.ts';
 
 export const VERDICT_LABELS: Record<Verdict, string> = {
@@ -14,23 +15,17 @@ export const VERDICT_LABELS: Record<Verdict, string> = {
 
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
-/** A relic named in a reason: icon, name, and its effects (with curses) on one line. */
+/** A relic named in a reason, drawn like the relic column: icon and name, effects stacked below. */
 function RelicRef({ relic }: { relic: RelicSpec }) {
-  const effects = relic.effects.filter((e): e is number => e !== null).map(effectName);
-  const curses = relic.curses.filter((c): c is number => c !== null).map(effectName);
+  const color = catalog().relic(relic.itemId)?.color;
   return (
-    <span className="relic-ref">
-      <GameIcon src={relicIcon(relic.itemId)} />
-      <b>{relicName(relic.itemId)}</b>
-      <span className="muted">
-        {' '}
-        ({effects.join(' · ')}
-        {curses.length > 0 && (
-          <span className="relic-ref__curses"> · curses: {curses.join(' · ')}</span>
-        )}
-        )
-      </span>
-    </span>
+    <div className={`relic-ref relic--${colorClass(color)}`}>
+      <div className="named">
+        <GameIcon src={relicIcon(relic.itemId)} />
+        <b>{relicName(relic.itemId)}</b>
+      </div>
+      <RelicEffects relic={relic} />
+    </div>
   );
 }
 
@@ -89,7 +84,8 @@ function WhyLines({ verdict, why }: { verdict: Verdict | null; why: WhyLine[] })
           return (
             // biome-ignore lint/suspicious/noArrayIndexKey: reason lines are positional
             <li key={i}>
-              Everything wanted from it is also on <RelicRef relic={w.by} />
+              Everything wanted from it is also on:
+              <RelicRef relic={w.by} />
               {w.permanent ? (
                 <span> — a unique relic, always kept.</span>
               ) : (

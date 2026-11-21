@@ -777,14 +777,28 @@ input.group-card__name {
 }
 
 .relic-ref {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  flex-wrap: wrap;
+  display: grid;
+  gap: 0.2rem;
+  margin: 0.25rem 0;
+  padding: 0.3rem 0.6rem;
+  border-left: 3px solid var(--line);
+  background: var(--panel-2);
+  border-radius: var(--radius);
+  width: max-content;
+  max-width: 100%;
 }
 
-.relic-ref__curses {
-  color: var(--error);
+.relic-ref.relic--red {
+  border-left-color: var(--red);
+}
+.relic-ref.relic--blue {
+  border-left-color: var(--blue);
+}
+.relic-ref.relic--yellow {
+  border-left-color: var(--yellow);
+}
+.relic-ref.relic--green {
+  border-left-color: var(--green);
 }
 
 .verdict {
