@@ -42,7 +42,7 @@ describe('seed from builds', () => {
     expect(combos[1]).toMatchObject({
       effects: [6001601, 6611302, 6610500],
       colors: ['Red'],
-      importance: 'high',
+      importance: 'mustKeep',
       curseOverrides: { 6850500: 'fine' },
     });
     const magic = group.needs.filter((n) => n.kind === 'effect' && n.effect === 7001502);

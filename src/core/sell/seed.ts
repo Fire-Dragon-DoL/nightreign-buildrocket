@@ -13,8 +13,8 @@ import {
   RELIC_COLORS,
 } from './config.ts';
 
-/** Imported needs start at this importance (chosen by the owner). */
-export const SEED_IMPORTANCE: Importance = 'high';
+/** Imported needs start at this importance (chosen by the owner: a build's relics stay). */
+export const SEED_IMPORTANCE: Importance = 'mustKeep';
 
 export const seedGroupName = (build: Build): string =>
   `${build.name || '(unnamed)'} (${heroName(build.heroId)})`;
