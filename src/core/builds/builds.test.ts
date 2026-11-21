@@ -104,19 +104,57 @@ describe('specKey', () => {
 });
 
 describe('builds JSON document', () => {
-  it('round-trips', () => {
-    const doc = toBuildsDocument(
-      extractCharacterBuilds(character),
-      new Date('2026-01-01T00:00:00Z'),
+  const builds = extractCharacterBuilds(character);
+  const doc = toBuildsDocument(builds, new Date('2026-01-01T00:00:00Z'));
+
+  it('writes every game id as { id, name }', () => {
+    expect(doc.version).toBe(2);
+    const older = doc.builds.find((b) => b.name === 'Older');
+    expect(older?.hero).toEqual({ id: 1, name: 'Wylder' });
+    expect(older?.vessel).toEqual({ id: 1000, name: "[Wylder] Wylder's Urn" });
+    expect(older?.relics[0]).toEqual({
+      relic: { id: 100, name: 'Delicate Burning Scene' },
+      effects: [{ id: 7000000, name: expect.any(String) }, null, null],
+      curses: [null, null, null],
+    });
+    expect(older?.relics[3]?.curses[0]).toEqual({ id: 6850000, name: expect.any(String) });
+    expect(older?.relics[1]).toBeNull();
+  });
+
+  it('round-trips to the same builds', () => {
+    expect(parseBuildsDocument(JSON.stringify(doc))).toEqual({
+      exportedAt: '2026-01-01T00:00:00.000Z',
+      builds,
+    });
+  });
+
+  it('accepts ids without names', () => {
+    const stripped = JSON.parse(JSON.stringify(doc), (key, value) =>
+      key === 'name' &&
+      typeof value === 'string' &&
+      value !== 'Older' &&
+      value !== 'Newer' &&
+      value !== 'Second hero'
+        ? undefined
+        : value,
     );
-    expect(parseBuildsDocument(JSON.stringify(doc))).toEqual(doc);
+    expect(parseBuildsDocument(JSON.stringify(stripped)).builds).toEqual(builds);
+  });
+
+  it('still reads version 1 files (plain ids)', () => {
+    const v1 = { format: 'nightreign-buildrocket/builds', version: 1, exportedAt: 'x', builds };
+    expect(parseBuildsDocument(JSON.stringify(v1)).builds).toEqual(builds);
   });
 
   it.each([
     ['not json', 'Not valid JSON'],
     ['{"format":"other"}', 'Not a Nightreign Buildrocket builds file'],
-    ['{"format":"nightreign-buildrocket/builds","version":2,"builds":[]}', 'Unsupported version'],
-    ['{"format":"nightreign-buildrocket/builds","version":1}', 'Missing builds'],
+    ['{"format":"nightreign-buildrocket/builds","version":3,"builds":[]}', 'Unsupported version'],
+    ['{"format":"nightreign-buildrocket/builds","version":2}', 'Missing builds'],
+    [
+      '{"format":"nightreign-buildrocket/builds","version":2,"builds":[{"hero":{},"vessel":{"id":1}}]}',
+      'Missing id for hero',
+    ],
   ])('rejects %s', (json, message) => {
     expect(() => parseBuildsDocument(json)).toThrow(BuildsDocumentError);
     expect(() => parseBuildsDocument(json)).toThrow(message);
