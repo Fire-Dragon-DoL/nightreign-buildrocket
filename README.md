@@ -46,7 +46,9 @@ CSV_ writes the list with names and ids (UTF-8, opens in Excel).
   are worth nothing. Deep of Night also lists curses: set how much each one
   bothers you by default (a _dealbreaker_ stops a relic from counting), or
   want them like any effect.
-- **Groups & combos:** needs live in named groups (shown as "kept by").
+- **Needs & combos:** one list of single effects and combos (effects wanted on the same
+  relic). Effects that stack with themselves accept lower levels by default; the highest
+  you own is kept first. Plans from older versions with several groups still load.
   A combo is effects you want on the **same** relic (a godroll); relics with
   more effects match too, partial matches are weak backups. Each combo member
   (and each single effect) can accept lower levels ("Physical Attack Up +1 or
@@ -56,7 +58,8 @@ CSV_ writes the list with names and ids (UTF-8, opens in Excel).
   tolerate curses the default says are dealbreakers.
 - **Stacking:** which levels stack in one build, from community data; change
   a family with a preset or a grid.
-- **Seed from builds:** turn builds into groups once, then edit them.
+- **Seed from builds:** add what builds use to the list once (merged, copies = the most any
+  single build uses), then edit it.
 
 _Results_ lists every relic you can sell, grouped by Deep/normal, color and
 size, from risk 0 (safe) to 99, with why it's safe or what it would hurt, and
