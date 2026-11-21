@@ -6,9 +6,11 @@ import type {
   NeedGroup,
   SellConfig,
 } from '../../core/sell/config.ts';
+import { DEFAULT_GROUP } from '../../core/sell/config.ts';
 import type { EffectIndex } from '../../core/sell/effects.ts';
+import { mergeNeeds, withDefaultLevels } from '../../core/sell/needs.ts';
 
-export const DEFAULT_GROUP = 'General';
+export { DEFAULT_GROUP } from '../../core/sell/config.ts';
 
 export type ConfigUpdate = (update: (config: SellConfig) => SellConfig) => void;
 
@@ -64,13 +66,15 @@ export function setEffectNeed(
   groupName: string,
   effect: number,
   patch: Partial<Omit<Need, 'kind'>> | null,
+  /** When given, a new need for an effect that stacks with itself accepts lower levels. */
+  index?: EffectIndex,
 ): SellConfig {
   const [withGroup, gi] = ensureGroup(config, groupName);
   const group = withGroup.groups[gi];
   const ni = effectNeedIndex(group, effect);
   if (patch === null) return ni < 0 ? withGroup : updateNeed(withGroup, gi, ni, null);
   if (ni >= 0) return updateNeed(withGroup, gi, ni, (n) => ({ ...n, ...patch }) as Need);
-  const need: Need = {
+  const fresh = {
     kind: 'effect',
     effect,
     copies: 1,
@@ -78,6 +82,7 @@ export function setEffectNeed(
     importance: 'normal',
     ...patch,
   } as Need;
+  const need = index ? withDefaultLevels(fresh, index) : fresh;
   return updateGroup(withGroup, gi, (g) => ({ ...g, needs: [...g.needs, need] }));
 }
 
@@ -134,3 +139,33 @@ export function setStacks(
   if (byDefault !== stacks) (stacks ? stack : noStack).push([a, b]);
   return { ...rules, noStack, stack };
 }
+
+/** Add needs to the plan's one list, merging with identical ones already there. */
+export function addNeeds(
+  config: SellConfig,
+  needs: Need[],
+): { config: SellConfig; added: number; updated: number } {
+  const [withGroup, gi] = ensureGroup(config, DEFAULT_GROUP);
+  const group = withGroup.groups[gi] as NeedGroup;
+  const merged = mergeNeeds(group.needs, needs);
+  return {
+    config: updateGroup(withGroup, gi, (g) => ({ ...g, needs: merged.needs })),
+    added: merged.added,
+    updated: merged.updated,
+  };
+}
+
+/** Move every need into the one list (older plans with several groups). */
+export function mergeAllGroups(config: SellConfig): SellConfig {
+  const all = config.groups.flatMap((g) => g.needs);
+  return addNeeds({ ...config, groups: [] }, all).config;
+}
+
+/** Let every need on an effect that stacks with itself accept lower levels (keeps set levels). */
+export const acceptLowerLevels = (config: SellConfig, index: EffectIndex): SellConfig => ({
+  ...config,
+  groups: config.groups.map((g) => ({
+    ...g,
+    needs: g.needs.map((n) => withDefaultLevels(n, index)),
+  })),
+});

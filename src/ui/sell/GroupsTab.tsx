@@ -9,11 +9,15 @@ import {
   type SellConfig,
 } from '../../core/sell/config.ts';
 import type { EffectIndex } from '../../core/sell/effects.ts';
+import { withDefaultLevels } from '../../core/sell/needs.ts';
 import { needRelicKind } from '../../core/sell/planner.ts';
 import {
+  acceptLowerLevels,
+  addNeeds,
   type ConfigUpdate,
+  DEFAULT_GROUP,
+  mergeAllGroups,
   setGroups,
-  uniqueGroupName,
   updateGroup,
   updateNeed,
 } from './configEdit.ts';
@@ -34,45 +38,64 @@ interface Props {
   index: EffectIndex;
 }
 
-/** Named groups of needs: rename, delete, add single effects and combos, curse tolerance. */
+/**
+ * The plan's needs: single effects and combos (effects wanted on the same relic), in one list.
+ * Plans from older versions may hold several named groups: they are shown apart, with a button to
+ * merge them into one list.
+ */
 export function GroupsTab({
   config,
   update,
   index,
   character,
 }: Props & { character: CharacterData | undefined }) {
+  const legacy = config.groups.length > 1;
+  const main = Math.max(
+    0,
+    config.groups.findIndex((g) => g.name === DEFAULT_GROUP),
+  );
   return (
     <div className="groups-tab">
       <div className="toolbar">
+        <span className="muted">
+          What you want to keep: single effects (also set in the Normal / Deep tabs) and combos of
+          effects you want on the same relic.
+        </span>
+        <div className="toolbar__spacer" />
         <button
           type="button"
-          data-testid="group-add"
-          onClick={() =>
-            update((c) =>
-              setGroups(c, [...c.groups, { name: uniqueGroupName(c, 'New group'), needs: [] }]),
-            )
-          }
+          className="button--quiet"
+          data-testid="accept-lower"
+          title="For effects that stack with themselves: count lower levels too (the highest you own is kept first)"
+          onClick={() => update((c) => acceptLowerLevels(c, index))}
         >
-          New group
+          Accept lower levels for stacking effects
         </button>
-        <span className="muted">
-          A group is what you want to keep for one purpose (a build, a hero, a playstyle). Its name
-          shows as "kept by" in the results.
-        </span>
       </div>
       <details className="build-picker" data-testid="seed">
         <summary>Protect relics used in builds…</summary>
-        <SeedTab character={character} update={update} />
+        <SeedTab character={character} update={update} index={index} />
       </details>
-      {config.groups.length === 0 && (
-        <p className="muted">
-          No groups yet. Create one, set effects in the Normal / Deep tabs, or seed from builds.
+      {legacy && (
+        <p className="warning" data-testid="legacy-groups">
+          This plan has {config.groups.length} named groups (made with an older version).{' '}
+          <button
+            type="button"
+            data-testid="merge-groups"
+            onClick={() => update((c) => mergeAllGroups(c))}
+          >
+            Merge into one list
+          </button>
         </p>
       )}
-      {config.groups.map((_, gi) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: groups can be renamed, the position is their identity
-        <GroupCard key={gi} config={config} update={update} index={index} groupIndex={gi} />
-      ))}
+      {legacy ? (
+        config.groups.map((_, gi) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: groups have no id
+          <GroupCard key={gi} config={config} update={update} index={index} groupIndex={gi} named />
+        ))
+      ) : (
+        <GroupCard config={config} update={update} index={index} groupIndex={main} named={false} />
+      )}
     </div>
   );
 }
@@ -111,46 +134,60 @@ function LevelSelect({
   );
 }
 
-function GroupCard({ config, update, index, groupIndex }: Props & { groupIndex: number }) {
-  const group = config.groups[groupIndex];
+function GroupCard({
+  config,
+  update,
+  index,
+  groupIndex,
+  named,
+}: Props & { groupIndex: number; named: boolean }) {
+  const group = config.groups[groupIndex] ?? { name: DEFAULT_GROUP, needs: [] };
   const [combo, setCombo] = useState<number[]>([]);
-  if (!group) return null;
   const setNeed = (ni: number, patch: Partial<Need> | null) =>
     update((c) =>
       updateNeed(c, groupIndex, ni, patch === null ? null : (n) => ({ ...n, ...patch }) as Need),
     );
+  // New needs go to the one list (merged with an identical need if there is one).
   const addNeed = (need: Need) =>
-    update((c) => updateGroup(c, groupIndex, (g) => ({ ...g, needs: [...g.needs, need] })));
+    update((c) => addNeeds(c, [withDefaultLevels(need, index)]).config);
 
   return (
     <section className="group-card" data-testid="group-card">
-      <div className="toolbar">
-        <input
-          className="group-card__name"
-          value={group.name}
-          data-testid="group-name"
-          onChange={(e) =>
-            update((c) => updateGroup(c, groupIndex, (g) => ({ ...g, name: e.target.value })))
-          }
-        />
-        <span className="muted">{group.needs.length} needs</span>
-        <div className="toolbar__spacer" />
-        <button
-          type="button"
-          className="button--quiet"
-          onClick={() =>
-            update((c) =>
-              setGroups(
-                c,
-                c.groups.filter((_, i) => i !== groupIndex),
-              ),
-            )
-          }
-        >
-          Delete group
-        </button>
-      </div>
+      {named && (
+        <div className="toolbar">
+          <input
+            className="group-card__name"
+            value={group.name}
+            data-testid="group-name"
+            onChange={(e) =>
+              update((c) => updateGroup(c, groupIndex, (g) => ({ ...g, name: e.target.value })))
+            }
+          />
+          <span className="muted">{group.needs.length} needs</span>
+          <div className="toolbar__spacer" />
+          <button
+            type="button"
+            className="button--quiet"
+            onClick={() =>
+              update((c) =>
+                setGroups(
+                  c,
+                  c.groups.filter((_, i) => i !== groupIndex),
+                ),
+              )
+            }
+          >
+            Delete group
+          </button>
+        </div>
+      )}
 
+      {group.needs.length === 0 && (
+        <p className="muted">
+          Nothing yet. Add effects or combos below, give effects an importance in the Normal / Deep
+          tabs, or protect the relics your builds use.
+        </p>
+      )}
       {group.needs.length > 0 && (
         <div className="table-scroll">
           <table className="effect-table">

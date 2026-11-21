@@ -1,6 +1,6 @@
 import type { RelicSpec } from '../../core/builds/builds.ts';
 import { catalog, effectName, relicName } from '../../core/catalog/catalog.ts';
-import { IMPORTANCE_LABELS } from '../../core/sell/config.ts';
+import { DEFAULT_GROUP, IMPORTANCE_LABELS } from '../../core/sell/config.ts';
 import type { Verdict, WhyLine } from '../../core/sell/planner.ts';
 import { GameIcon } from '../components/GameIcon.tsx';
 import { colorClass, RelicEffects } from '../components/RelicParts.tsx';
@@ -106,7 +106,8 @@ function WhyLines({ verdict, why }: { verdict: Verdict | null; why: WhyLine[] })
         return (
           // biome-ignore lint/suspicious/noArrayIndexKey: reason lines are positional
           <li key={i} className={w.short ? 'why__short' : undefined}>
-            <span className="muted">{w.group} ›</span> {w.label}
+            {w.group !== DEFAULT_GROUP && <span className="muted">{w.group} › </span>}
+            {w.label}
             {w.color && (
               <span className={`why__color why__color--${w.color.toLowerCase()}`}> {w.color}</span>
             )}

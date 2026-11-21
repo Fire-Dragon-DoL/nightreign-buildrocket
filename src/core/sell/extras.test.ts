@@ -4,7 +4,7 @@ import { emptyConfig } from './config.ts';
 import { sellPlanToCsv } from './csv.ts';
 import { planSell } from './planner.ts';
 import { sectionPlan, suggestSearch } from './sections.ts';
-import { seedFromBuild } from './seed.ts';
+import { seedFromBuild, seedFromBuilds } from './seed.ts';
 
 const relic = (itemId: number, effects: number[], curses: number[] = []): RelicSpec => ({
   itemId,
@@ -46,6 +46,24 @@ describe('seed from builds', () => {
       curseOverrides: { 6850500: 'fine' },
     });
     const magic = group.needs.filter((n) => n.kind === 'effect' && n.effect === 7001502);
+    expect(magic.map((n) => [n.colors, n.copies])).toEqual([
+      [['Red'], 2],
+      [['Blue'], 1],
+    ]);
+  });
+
+  it('several builds merge into one list: copies = the most any single build uses', () => {
+    const build = (name: string, relics: RelicSpec[]): Build => ({
+      character: 'Me',
+      heroId: 8,
+      name,
+      vesselId: 1000,
+      relics: [...relics, null, null, null, null, null, null].slice(0, 6),
+    });
+    const a = build('A', [relic(RED, [7001502]), relic(RED, [7001502])]);
+    const b = build('B', [relic(RED, [7001502]), relic(BLUE, [7001502])]);
+    const needs = seedFromBuilds([a, b]);
+    const magic = needs.filter((n) => n.kind === 'effect' && n.effect === 7001502);
     expect(magic.map((n) => [n.colors, n.copies])).toEqual([
       [['Red'], 2],
       [['Blue'], 1],

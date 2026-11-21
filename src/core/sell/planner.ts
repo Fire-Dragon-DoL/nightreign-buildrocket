@@ -31,6 +31,7 @@ import {
   type ColorName,
   type CursePenalty,
   cursePenalty,
+  DEFAULT_GROUP,
   effectiveRules,
   type Importance,
   type Need,
@@ -554,7 +555,7 @@ export function reasonText(why: WhyLine[], name: (spec: RelicSpec) => string): s
       }
       const backups =
         w.coverage > w.keep + EPS ? ` (+${fmt(w.coverage - w.keep)} from backups)` : '';
-      return `${w.group} › ${w.label}${w.color ? ` (${w.color})` : ''}: keep ${w.keep}${backups}, want ${w.want}${w.short ? ' — SHORT' : ''}`;
+      return `${groupPrefix(w.group)}${w.label}${w.color ? ` (${w.color})` : ''}: keep ${w.keep}${backups}, want ${w.want}${w.short ? ' — SHORT' : ''}`;
     })
     .join('; ');
 }
@@ -774,7 +775,7 @@ export function planSell(
       ...ev.why.flatMap((w) =>
         w.kind === 'need' && w.short
           ? [
-              `${w.group} › ${w.label}${w.color ? ` (${w.color})` : ''}: only ${w.keep} of ${w.want} left without it`,
+              `${groupPrefix(w.group)}${w.label}${w.color ? ` (${w.color})` : ''}: only ${w.keep} of ${w.want} left without it`,
             ]
           : [],
       ),
@@ -839,3 +840,6 @@ export function looksLikeGodroll(
   const slots = rollRules().slotCount(spec.itemId) || spec.effects.filter((e) => e !== null).length;
   return top.size >= 2 && top.size >= Math.min(3, slots);
 }
+
+/** "Group › " for needs from older plans' named groups; nothing for the one list. */
+const groupPrefix = (group: string) => (group === DEFAULT_GROUP ? '' : `${group} › `);

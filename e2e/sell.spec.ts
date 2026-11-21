@@ -110,14 +110,16 @@ test('plans what to sell, saves and reloads the plan, seeds from builds', async 
   await page.getByRole('button', { name: 'New', exact: true }).click();
   await expect(page.getByTestId('sell-summary')).toContainText('0 kept');
   await page.getByTestId('rsp-input').setInputFiles(await writeTemp('plan.rsp', rsp));
-  await expect(page.getByTestId('rsp-status')).toContainText('plan.rsp · 1 group(s), 1 need(s)');
+  await expect(page.getByTestId('rsp-status')).toContainText('plan.rsp · 1 need(s)');
   await expect(page.getByTestId('sell-summary')).toContainText('2 kept');
 
-  // Protect the save's build (Groups tab): a group named after it appears.
+  // Protect the save's build: its needs merge into the one list, no new group.
   await page.getByTestId('tab-groups').click();
   await page.getByTestId('seed').locator('summary').click();
   await page.getByTestId('seed-build').first().check();
   await page.getByTestId('seed-import').click();
   await expect(page.getByTestId('seed-message')).toContainText('Imported 1 build(s)');
-  await expect(page.getByTestId('group-name').nth(1)).toHaveValue('Magic (Wylder)');
+  await expect(page.getByTestId('group-card')).toHaveCount(1);
+  await expect(page.getByTestId('group-name')).toHaveCount(0);
+  await expect(page.getByTestId('rsp-status')).not.toContainText('· 1 need(s)');
 });

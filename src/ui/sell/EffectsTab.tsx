@@ -45,7 +45,8 @@ interface FamilyRows {
 
 /** One tab of effects (normal, or Deep of Night with curses), grouped by family and hero. */
 export function EffectsTab({ kind, config, update, index, owned }: Props) {
-  const [groupName, setGroupName] = useState(DEFAULT_GROUP);
+  // Plans are one list now; older plans' other groups are left alone here.
+  const groupName = DEFAULT_GROUP;
   const [search, setSearch] = useState('');
   const [onlyOwned, setOnlyOwned] = useState(false);
   const [onlyWanted, setOnlyWanted] = useState(false);
@@ -101,7 +102,7 @@ export function EffectsTab({ kind, config, update, index, owned }: Props) {
   const curses = index.all().filter((m) => m.tier === 'curse' && visible(m));
 
   const setNeed = (id: number, patch: Parameters<typeof setEffectNeed>[3]) =>
-    update((c) => setEffectNeed(c, groupName, id, patch));
+    update((c) => setEffectNeed(c, groupName, id, patch, index));
   const toggle = (id: number) => {
     const next = new Set(selected);
     if (next.has(id)) next.delete(id);
@@ -119,6 +120,7 @@ export function EffectsTab({ kind, config, update, index, owned }: Props) {
           bulk.importance === null
             ? null
             : { importance: bulk.importance, copies: bulk.copies, colorScope: bulk.scope },
+          index,
         );
       }
       return next;
@@ -128,20 +130,6 @@ export function EffectsTab({ kind, config, update, index, owned }: Props) {
   return (
     <div className="effects-tab">
       <div className="toolbar">
-        <label className="field">
-          <span>Edit needs of group</span>
-          <input
-            list="sell-group-names"
-            value={groupName}
-            data-testid={`${kind}-group`}
-            onChange={(e) => setGroupName(e.target.value)}
-          />
-          <datalist id="sell-group-names">
-            {config.groups.map((g) => (
-              <option key={g.name} value={g.name} />
-            ))}
-          </datalist>
-        </label>
         <input
           type="search"
           placeholder="Search effects…"
@@ -164,7 +152,7 @@ export function EffectsTab({ kind, config, update, index, owned }: Props) {
             checked={onlyWanted}
             onChange={(e) => setOnlyWanted(e.target.checked)}
           />
-          <span>Only in this group</span>
+          <span>Only in my list</span>
         </label>
       </div>
 

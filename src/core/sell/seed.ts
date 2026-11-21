@@ -9,10 +9,13 @@ import {
   type ComboNeed,
   type EffectNeed,
   type Importance,
+  type Need,
   type NeedGroup,
   RELIC_COLORS,
   type RelicKind,
 } from './config.ts';
+import type { EffectIndex } from './effects.ts';
+import { mergeNeeds, withDefaultLevels } from './needs.ts';
 
 /** Imported needs start at this importance (chosen by the owner: a build's relics stay). */
 export const SEED_IMPORTANCE: Importance = 'mustKeep';
@@ -81,4 +84,22 @@ export function seedFromBuild(build: Build, importance: Importance = SEED_IMPORT
     }
   }
   return { name: seedGroupName(build), needs: [...combos.values(), ...singles.values()] };
+}
+
+/**
+ * Needs for several builds, merged into one list: identical needs keep the most copies any single
+ * build uses (builds share relics). With an effect index, effects that stack with themselves accept
+ * lower levels (the highest you own is still kept first).
+ */
+export function seedFromBuilds(
+  builds: Build[],
+  index?: EffectIndex,
+  importance: Importance = SEED_IMPORTANCE,
+): Need[] {
+  let needs: Need[] = [];
+  for (const build of builds) {
+    const fresh = seedFromBuild(build, importance).needs;
+    needs = mergeNeeds(needs, index ? fresh.map((n) => withDefaultLevels(n, index)) : fresh).needs;
+  }
+  return needs;
 }

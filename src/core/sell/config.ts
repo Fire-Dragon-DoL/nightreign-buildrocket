@@ -69,6 +69,9 @@ export interface ComboNeed extends NeedBase {
 
 export type Need = EffectNeed | ComboNeed;
 
+/** The one list of needs a plan has (older files may hold several named groups). */
+export const DEFAULT_GROUP = 'General';
+
 export interface NeedGroup {
   /** Shown as "kept by". */
   name: string;

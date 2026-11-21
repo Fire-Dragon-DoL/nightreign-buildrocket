@@ -33,7 +33,7 @@ const TABS: { tab: Tab; label: string }[] = [
   { tab: 'results', label: 'Results' },
   { tab: 'normal', label: 'Normal effects' },
   { tab: 'deep', label: 'Deep of Night' },
-  { tab: 'groups', label: 'Groups & combos' },
+  { tab: 'groups', label: 'Needs & combos' },
   { tab: 'stacking', label: 'Stacking' },
 ];
 
@@ -126,7 +126,7 @@ export function SellPlanner() {
       setWarnings(parsed.warnings);
       setConfigFile({ name: file.name });
       setDirty(false);
-      setConfigMessage(`Loaded ${file.name}: ${parsed.config.groups.length} group(s).`);
+      setConfigMessage(`Loaded ${file.name}.`);
     } catch (err) {
       setConfigMessage(`Could not load ${file.name}: ${(err as Error).message}`);
     }
@@ -175,10 +175,11 @@ export function SellPlanner() {
         Find relics you can sell. Load your <b>save</b> (or a builds JSON) and a <b>sell plan</b>{' '}
         (.rsp) saying what to keep, or build one here: give effects an importance and copies in the{' '}
         <b>Normal</b> / <b>Deep of Night</b> tabs and add combos (effects wanted on the same relic)
-        in <b>Groups</b>. Effects you don't configure are worth nothing. A relic is suggested only
-        if everything your plan wants is still there without it, and each one says why: nothing on
-        it is wanted, a relic you keep covers it, or enough copies are left. Selling everything
-        above any line is safe in the order shown. Save the plan to reuse it after your next runs.
+        in <b>Needs &amp; combos</b>. Effects you don't configure are worth nothing. A relic is
+        suggested only if everything your plan wants is still there without it, and each one says
+        why: nothing on it is wanted, a relic you keep covers it, or enough copies are left. Selling
+        everything above any line is safe in the order shown. Save the plan to reuse it after your
+        next runs.
       </p>
       <section className="loaders loaders--pair">
         <FileSourcePicker source={source} label="Relics: save or builds JSON" testId="sell" />
@@ -193,7 +194,7 @@ export function SellPlanner() {
           <div className="toolbar">
             <span data-testid="rsp-status">
               {configFile ? configFile.name : 'Unsaved plan'}
-              {dirty ? ' (changed)' : ''} · {config.groups.length} group(s), {needCount} need(s)
+              {dirty ? ' (changed)' : ''} · {needCount} need(s)
             </span>
             <div className="toolbar__spacer" />
             <button type="button" onClick={() => void saveConfig(false)} data-testid="rsp-save">

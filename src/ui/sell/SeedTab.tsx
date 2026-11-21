@@ -2,16 +2,18 @@ import { useState } from 'react';
 import type { CharacterData } from '../../core/builds/characters.ts';
 import { heroName } from '../../core/catalog/catalog.ts';
 import { IMPORTANCE_LABELS, type SellConfig } from '../../core/sell/config.ts';
-import { SEED_IMPORTANCE, seedFromBuild } from '../../core/sell/seed.ts';
-import { type ConfigUpdate, setGroups, uniqueGroupName } from './configEdit.ts';
+import type { EffectIndex } from '../../core/sell/effects.ts';
+import { SEED_IMPORTANCE, seedFromBuilds } from '../../core/sell/seed.ts';
+import { addNeeds, type ConfigUpdate } from './configEdit.ts';
 
 interface Props {
   character: CharacterData | undefined;
   update: ConfigUpdate;
+  index: EffectIndex;
 }
 
 /** Import builds as need groups, once (the config keeps no link to the save). */
-export function SeedTab({ character, update }: Props) {
+export function SeedTab({ character, update, index }: Props) {
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [message, setMessage] = useState<string | null>(null);
   if (!character)
@@ -27,25 +29,23 @@ export function SeedTab({ character, update }: Props) {
   };
   const importPicked = () => {
     const builds = character.builds.filter((_, i) => picked.has(i));
-    update((c: SellConfig) => {
-      let groups = c.groups;
-      for (const build of builds) {
-        const group = seedFromBuild(build);
-        groups = [...groups, { ...group, name: uniqueGroupName({ ...c, groups }, group.name) }];
-      }
-      return setGroups(c, groups);
-    });
-    setMessage(`Imported ${builds.length} build(s) as groups. Review them in the Groups tab.`);
+    const needs = seedFromBuilds(builds, index);
+    update((c: SellConfig) => addNeeds(c, needs).config);
+    setMessage(
+      `Imported ${builds.length} build(s): ${needs.length} need(s) merged into your list. Review them below.`,
+    );
     setPicked(new Set());
   };
 
   return (
     <div className="seed-tab">
       <p className="intro">
-        Mark what your builds use as worth keeping: each picked build becomes a group named after
-        it, with every relic's effects as a <b>combo</b> (same relic) and each effect on its own per
-        color, as many copies as the build uses, at <b>{IMPORTANCE_LABELS[SEED_IMPORTANCE]}</b>{' '}
-        importance. It's a one-time copy: the plan won't follow later changes to the save.
+        Mark what your builds use as worth keeping. The picked builds' relics are added to your
+        list: every relic's effects as a <b>combo</b> (same relic) and each effect on its own, per
+        color and relic kind, with as many copies as the build needing the most uses, at{' '}
+        <b>{IMPORTANCE_LABELS[SEED_IMPORTANCE]}</b> importance. Needs already in your list are
+        merged, not repeated. Effects that stack with themselves accept lower levels. It's a
+        one-time copy: the plan won't follow later changes to the save.
       </p>
       <div className="build-picker">
         <div className="build-picker__actions">
