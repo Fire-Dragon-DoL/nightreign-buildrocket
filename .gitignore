@@ -11,3 +11,8 @@ playwright-report/
 test/fixtures/local/
 *.sl2
 *.co2
+
+# Game data that may not be redistributed (see data/game/README.md). Kept
+# locally; the app works without it (no icons, no roll rules).
+data/game/icons.json
+data/game/relic_effects_allowlist.json

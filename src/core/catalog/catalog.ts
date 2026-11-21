@@ -1,11 +1,9 @@
 /**
  * Game data catalog: names and properties of relics, effects, vessels, heroes.
- *
- * Source data: data/vendor/er-save-manager/nr_items.json, taken from the last
- * MIT-licensed revision of Hapfel1/er-save-manager (see that folder's
- * LICENSE and README). Never copy from later revisions: they are not MIT.
+ * Source: data/game/relic_effects.json (see data/game/README.md).
  */
-import raw from '../../../data/vendor/er-save-manager/nr_items.json';
+import { type RawRelicEffects, rawRelicEffects, rawRollRules } from './game-data.ts';
+import { createRollRules, type RollRules } from './rules.ts';
 
 /** Relic / vessel slot colors as stored in the data. */
 export const RelicColor = { Red: 0, Blue: 1, Yellow: 2, Green: 3, Any: 4 } as const;
@@ -59,12 +57,6 @@ export interface VesselInfo {
   deepSlots: [RelicColor, RelicColor, RelicColor];
 }
 
-interface RawData {
-  relics: Record<string, { name: string; deep: boolean; color: number }>;
-  effects: Record<string, { name: string; tier: string; heroes: number[] }>;
-  vessels: Record<string, { name: string; hero: number; slots: number[]; deep: number[] }>;
-}
-
 export interface Catalog {
   relic(id: number): RelicInfo | undefined;
   effect(id: number): EffectInfo | undefined;
@@ -74,7 +66,7 @@ export interface Catalog {
   vessels(): Iterable<VesselInfo>;
 }
 
-export function buildCatalog(data: RawData): Catalog {
+export function buildCatalog(data: RawRelicEffects): Catalog {
   const relics = new Map<number, RelicInfo>();
   for (const [id, r] of Object.entries(data.relics)) {
     relics.set(Number(id), {
@@ -113,7 +105,7 @@ let defaultCatalog: Catalog | undefined;
 
 /** The catalog built from the bundled data (built once, lazily). */
 export function catalog(): Catalog {
-  defaultCatalog ??= buildCatalog(raw as RawData);
+  defaultCatalog ??= buildCatalog(rawRelicEffects);
   return defaultCatalog;
 }
 
@@ -124,3 +116,15 @@ export const effectName = (id: number): string =>
 export const vesselName = (id: number): string =>
   catalog().vessel(id)?.name ?? `Unknown vessel (${id})`;
 export const heroName = (id: number): string => HEROES[id] ?? `Unknown hero (${id})`;
+
+let defaultRules: RollRules | null | undefined;
+
+/** Roll rules from the bundled data, or undefined when that data is not available locally. */
+export function rollRules(): RollRules | undefined {
+  if (defaultRules === undefined) {
+    defaultRules = rawRollRules
+      ? createRollRules(rawRollRules, (id) => catalog().relic(id)?.deep ?? false)
+      : null;
+  }
+  return defaultRules ?? undefined;
+}

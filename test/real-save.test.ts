@@ -12,7 +12,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { extractBuilds } from '../src/core/builds/builds.ts';
-import { catalog } from '../src/core/catalog/catalog.ts';
+import { catalog, rollRules } from '../src/core/catalog/catalog.ts';
 import { readSaveFile } from '../src/core/save/read-save.ts';
 
 function findSaveFile(): string | undefined {
@@ -96,6 +96,15 @@ describe.skipIf(!savePath)('real save file', async () => {
     expect(builds.flatMap((b) => b.relics).filter((r) => r !== null).length).toBe(
       presetSlots.filter((h) => h !== null).length,
     );
+  });
+
+  it.skipIf(!rollRules())('only has relics the game can roll (needs local roll rules)', () => {
+    const rules = rollRules();
+    if (!rules) return;
+    for (const c of save.characters) {
+      const broken = c.relics.filter((r) => rules.check(r).length > 0);
+      expect(broken).toEqual([]);
+    }
   });
 
   it('parses quickly', async () => {
