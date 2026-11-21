@@ -5,6 +5,9 @@
 import type { Build, RelicSpec } from '../core/builds/builds.ts';
 import type { LoadedFile } from '../core/builds/load-file.ts';
 import type { MissingRelicsResult } from '../core/compare/missing.ts';
+import type { SellConfig } from '../core/sell/config.ts';
+import type { SellPlan } from '../core/sell/planner.ts';
+import type { SellSection } from '../core/sell/sections.ts';
 import type { WorkerRequest, WorkerResponse } from './protocol.ts';
 import SaveWorker from './save-worker.ts?worker&inline';
 
@@ -91,6 +94,20 @@ export class SaveWorkerClient {
   ): Promise<{ result: MissingRelicsResult; ms: number }> {
     const { result, ms } = await this.#send({ type: 'findMissing', builds, pool }, [], onProgress);
     return { result, ms };
+  }
+
+  /** Rank `pool`'s sellable relics by risk for `config` (see core/sell). */
+  async planSell(
+    pool: RelicSpec[],
+    config: SellConfig,
+    onProgress?: Progress,
+  ): Promise<{ plan: SellPlan; sections: SellSection[]; ms: number }> {
+    const { plan, sections, ms } = await this.#send(
+      { type: 'planSell', pool, config },
+      [],
+      onProgress,
+    );
+    return { plan, sections, ms };
   }
 
   terminate(): void {
