@@ -91,14 +91,14 @@ reusable modules:
 ## Licensing and game data
 
 - The project is UNLICENSED: personal use, all rights reserved (`LICENSE`).
-- Game data lives in `data/game/` (see its README). `relic_effects.json` is
-  committed with its license file `relic_effects.LICENSE`, which must stay
-  next to it. `relic_effects_allowlist.json` and `icons.json` must not be
-  redistributed: they stay gitignored and local, and the app must keep
-  building and working without them (load them via `import.meta.glob`, as in
-  `src/core/catalog/game-data.ts` and `src/ui/icons.ts`).
-- `icons.json` is generated from an icons SQLite database with
-  `node scripts/convert-icons.mjs <icons.db>`.
+- Game data lives in `data/game/` (see its README) and is committed.
+  `relic_effects.json` (names) keeps its license file `relic_effects.LICENSE`
+  next to it. `relic_effects_allowlist.json` and `icons.json` are generated
+  from the game's files by `tools/game-data/extract.py`; regenerate them after
+  a game patch instead of editing them by hand.
+- Format knowledge may come from community projects, but never copy code or
+  data from projects whose license does not allow it (e.g. GPL tools: take
+  facts such as offsets and keys, write the code ourselves).
 
 ## Releasing
 

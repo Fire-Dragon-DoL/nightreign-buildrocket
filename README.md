@@ -68,9 +68,10 @@ pnpm check        # everything: lint, types, unit, build, e2e
 
 ### Game data
 
-`data/game/` holds relic, effect and vessel names (committed) plus two
-local-only files, icons and roll rules, that are gitignored. The app works
-without them. See `data/game/README.md` for how to add them.
+`data/game/` holds relic, effect and vessel names, the relic roll rules and
+the game icons, bundled into the HTML file. The roll rules and icons are
+generated from the game's own files with `tools/game-data/extract.py`; rerun
+it after a game patch (see `tools/game-data/README.md`).
 
 ### Testing with your own save
 
@@ -96,10 +97,6 @@ pnpm release patch             # or minor / major / 1.2.3
 This bumps the version, tags, pushes, and creates a GitHub release with the
 HTML file attached. Release notes are generated from conventional commits.
 
-Both refuse to run while local-only game data (icons, roll rules) is in
-`data/game/`, since a published build would contain it; see
-`data/game/README.md`.
-
 Optionally, `pnpm deploy:pages` publishes the app to GitHub Pages (enable
 Pages once: Settings → Pages → Deploy from branch `gh-pages`).
 
@@ -120,6 +117,7 @@ test/          shared test helpers, real-save tests
 data/game/     game data: names, roll rules, icons (see its README)
 docs/          save format write-up
 scripts/       release / deploy
+tools/         game data extractor (Python + a small Rust decompressor)
 ```
 
 ## License
