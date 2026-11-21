@@ -14,8 +14,8 @@ export interface RawRollRules {
   deep_pools: { needs_curse: number; other: number[]; curses: number };
   legacy_tables: number[];
   relics: Record<string, number[]>;
-  /** Relic ids the game won't let you sell. Optional until the data is regenerated. */
-  unsellable?: number[];
+  /** Relic ids the game won't let you sell (`EquipParamAntique.isSalable` = 0). */
+  unsellable: number[];
   tables: Record<string, number>;
   pools: number[][];
   effects: Record<string, [number, number]>;

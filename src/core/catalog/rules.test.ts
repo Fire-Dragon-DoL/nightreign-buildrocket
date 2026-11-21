@@ -18,6 +18,7 @@ const raw: RawRollRules = {
   deep_pools: { needs_curse: 10, other: [11], curses: 12 },
   legacy_tables: [],
   relics: { 100: [1, 2], 200: [3], 300: [99], 2000: [10, 11, 11], 2001: [10, 11] },
+  unsellable: [200],
   tables: { 1: 0, 2: 1, 3: 2, 10: 3, 11: 4, 12: 5 },
   pools: [[A, B], [C], [D], [X], [Y], [CURSE]],
   effects: {
@@ -35,6 +36,11 @@ const codes = (itemId: number, effects: (number | null)[], curses: (number | nul
   rules.check({ itemId, effects, curses }).map((i) => i.code);
 
 describe('relic roll rules', () => {
+  it('knows which relics cannot be sold', () => {
+    expect(rules.isSellable(100)).toBe(true);
+    expect(rules.isSellable(200)).toBe(false);
+  });
+
   it('classifies relics', () => {
     expect(rules.relicKind(100)).toBe('random');
     expect(rules.relicKind(200)).toBe('fixed');

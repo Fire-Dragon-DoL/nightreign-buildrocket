@@ -49,6 +49,8 @@ export interface RollRules {
   compatibilityId(effectId: number): number | undefined;
   needsCurse(effectId: number): boolean;
   isCurse(effectId: number): boolean;
+  /** False for relics the game won't let you sell (Night boss, quest and fixed-effect relics). */
+  isSellable(itemId: number): boolean;
   /** Rules the relic breaks; empty when the game can roll it. */
   check(relic: RelicEffects): RelicIssue[];
 }
@@ -163,6 +165,7 @@ export function createRollRules(
   };
 
   const slotCount = (itemId: number) => slotTables(itemId)?.length ?? 0;
+  const unsellable = new Set(raw.unsellable);
 
   return {
     relicKind,
@@ -171,6 +174,7 @@ export function createRollRules(
     compatibilityId,
     needsCurse: (id) => needsCursePool.has(id),
     isCurse: (id) => cursePool.has(id),
+    isSellable: (itemId) => !unsellable.has(itemId),
     check,
   };
 }
