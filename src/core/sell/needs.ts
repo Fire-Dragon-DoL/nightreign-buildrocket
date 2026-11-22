@@ -2,7 +2,7 @@
  * Helpers on needs: default levels, identity, and merging lists of needs
  * (one plan is one list of needs; groups only survive for older files).
  */
-import { IMPORTANCES, type Need } from './config.ts';
+import { IMPORTANCES, type Need, needEffectIds } from './config.ts';
 import type { EffectIndex } from './effects.ts';
 
 /**
@@ -29,7 +29,7 @@ export function withDefaultLevels(need: Need, index: EffectIndex): Need {
     return level === undefined ? need : { ...need, minLevel: level };
   }
   const minLevels = { ...need.minLevels };
-  for (const id of need.effects) {
+  for (const id of needEffectIds(need)) {
     if (minLevels[id] !== undefined) continue;
     const level = defaultMinLevel(index, id);
     if (level !== undefined) minLevels[id] = level;
@@ -46,7 +46,16 @@ export function needKey(need: Need): string {
       : `C${[...need.effects]
           .sort((a, b) => a - b)
           .map((id) => `${id}@${need.minLevels?.[id] ?? ''}`)
-          .join(',')}`;
+          .join(',')}${(need.anyOf ?? [])
+          .map(
+            (slot) =>
+              `|any:${[...slot]
+                .sort((a, b) => a - b)
+                .map((id) => `${id}@${need.minLevels?.[id] ?? ''}`)
+                .join(',')}`,
+          )
+          .sort()
+          .join('')}`;
   return `${what}|${need.colorScope}|${colors}|${need.relics ?? 'auto'}`;
 }
 

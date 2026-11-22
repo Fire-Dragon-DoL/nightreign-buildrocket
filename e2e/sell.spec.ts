@@ -123,3 +123,30 @@ test('plans what to sell, saves and reloads the plan, seeds from builds', async 
   await expect(page.getByTestId('group-name')).toHaveCount(0);
   await expect(page.getByTestId('rsp-status')).not.toContainText('· 1 need(s)');
 });
+
+test('builds a combo with an "any of" slot, then is ready for the next one', async ({ page }) => {
+  await page.goto(SELL_URL);
+  await page.getByTestId('sell-input').setInputFiles(await save());
+  await page.getByTestId('tab-groups').click();
+
+  // Dragon Communion + any of Incantations +2 / Fire +4.
+  await page.getByTestId('group-combo-effect').fill('x #7044600');
+  await page.getByTestId('group-combo-any-add').click();
+  await page.getByTestId('group-combo-any').fill('x #6611302');
+  await page.getByTestId('group-combo-any').fill('x #6001601');
+  await expect(page.getByText('2 pairings, counted together')).toBeVisible();
+  await page.getByTestId('group-combo-add').click();
+
+  const row = page.getByTestId('need-row');
+  await expect(row).toHaveCount(1);
+  await expect(row.getByTestId('combo-any')).toContainText('Improved Incantations +2');
+  await expect(row.getByTestId('combo-any')).toContainText('Fire Attack Power Up +4');
+  // New combos: must keep, 1 per color; the builder is empty and focused.
+  await expect(row.getByTestId('need-importance')).toHaveValue('mustKeep');
+  await expect(page.getByTestId('group-combo-effect')).toBeFocused();
+  await expect(page.getByTestId('group-combo-any')).toHaveCount(0);
+
+  // Copy to builder brings it back for a variant.
+  await row.getByTestId('combo-copy').click();
+  await expect(page.getByTestId('group-combo-any')).toHaveCount(1);
+});

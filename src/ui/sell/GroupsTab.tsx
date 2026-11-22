@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import type { CharacterData } from '../../core/builds/characters.ts';
 import {
+  type ComboNeed,
   type Need,
   RELIC_COLORS,
   RELIC_KIND_LABELS,
@@ -134,6 +135,84 @@ function LevelSelect({
   );
 }
 
+/** The combo the builder would add, or null if it needs more (2+ slots, no empty slot). */
+function comboDraft(effects: number[], slots: number[][]): ComboNeed | null {
+  const filled = slots.filter((s) => s.length > 0);
+  // A one-option slot is just another required effect.
+  const required = [...effects, ...filled.filter((s) => s.length === 1).flat()];
+  const anyOf = filled.filter((s) => s.length > 1);
+  if (required.length + anyOf.length < 2) return null;
+  const need: ComboNeed = {
+    kind: 'combo',
+    effects: [...new Set(required)],
+    copies: 1,
+    colorScope: 'perColor',
+    importance: 'mustKeep',
+    relics: 'any',
+  };
+  if (anyOf.length) need.anyOf = anyOf;
+  return need;
+}
+
+function comboPreview(index: EffectIndex, need: ComboNeed): string {
+  const name = (id: number) => index.meta(id)?.name ?? String(id);
+  const options = (need.anyOf ?? []).reduce((n, s) => n * s.length, 1);
+  return options > 1 ? `${options} pairings, counted together` : need.effects.map(name).join(' + ');
+}
+
+function removeOption(need: ComboNeed, slot: number, id: number): ComboNeed {
+  const anyOf = (need.anyOf ?? []).map((s, i) => (i === slot ? s.filter((x) => x !== id) : s));
+  return { ...need, anyOf };
+}
+
+/** One effect of a combo with its level choice (and a remove button for "any of" options). */
+function ComboMember({
+  index,
+  need,
+  id,
+  edit,
+  onRemove,
+}: {
+  index: EffectIndex;
+  need: ComboNeed;
+  id: number;
+  edit: (fn: (n: Need) => Need) => void;
+  onRemove?: (() => void) | undefined;
+}) {
+  return (
+    <div className="combo__member">
+      <EffectName meta={index.meta(id)} id={id} />
+      <LevelSelect
+        index={index}
+        id={id}
+        value={need.minLevels?.[id]}
+        onChange={(level) =>
+          edit((n) =>
+            n.kind === 'combo'
+              ? {
+                  ...n,
+                  minLevels: { ...n.minLevels, [id]: level },
+                  // Lower levels may live on the other kind of relic.
+                  relics: n.relics ?? 'any',
+                }
+              : n,
+          )
+        }
+      />
+      {onRemove && (
+        <button
+          type="button"
+          className="button--quiet"
+          title="Remove this option"
+          onClick={onRemove}
+        >
+          ×
+        </button>
+      )}
+    </div>
+  );
+}
+
 function GroupCard({
   config,
   update,
@@ -143,7 +222,9 @@ function GroupCard({
 }: Props & { groupIndex: number; named: boolean }) {
   const group = config.groups[groupIndex] ?? { name: DEFAULT_GROUP, needs: [] };
   const [combo, setCombo] = useState<number[]>([]);
+  const [slots, setSlots] = useState<number[][]>([]);
   const comboInput = useRef<HTMLInputElement>(null);
+  const draft = comboDraft(combo, slots);
   const setNeed = (ni: number, patch: Partial<Need> | null) =>
     update((c) =>
       updateNeed(c, groupIndex, ni, patch === null ? null : (n) => ({ ...n, ...patch }) as Need),
@@ -218,29 +299,52 @@ function GroupCard({
                         <div className="combo">
                           <span className="combo__tag">Combo</span>
                           {need.effects.map((id) => (
-                            <div key={id} className="combo__member">
-                              <EffectName meta={index.meta(id)} id={id} />
-                              <LevelSelect
-                                index={index}
-                                id={id}
-                                value={need.minLevels?.[id]}
-                                onChange={(level) =>
-                                  update((c) =>
-                                    updateNeed(c, groupIndex, ni, (n) =>
-                                      n.kind === 'combo'
-                                        ? {
-                                            ...n,
-                                            minLevels: { ...n.minLevels, [id]: level },
-                                            // Lower levels may live on the other kind of relic.
-                                            relics: n.relics ?? 'any',
-                                          }
-                                        : n,
-                                    ),
-                                  )
-                                }
-                              />
+                            <ComboMember
+                              key={id}
+                              index={index}
+                              need={need}
+                              id={id}
+                              edit={(fn) => update((c) => updateNeed(c, groupIndex, ni, fn))}
+                            />
+                          ))}
+                          {(need.anyOf ?? []).map((slot, si) => (
+                            // biome-ignore lint/suspicious/noArrayIndexKey: slots are positional
+                            <div key={si} className="combo__any" data-testid="combo-any">
+                              <span className="combo__any-tag">any of</span>
+                              {slot.map((id) => (
+                                <ComboMember
+                                  key={id}
+                                  index={index}
+                                  need={need}
+                                  id={id}
+                                  edit={(fn) => update((c) => updateNeed(c, groupIndex, ni, fn))}
+                                  onRemove={
+                                    slot.length > 1
+                                      ? () =>
+                                          update((c) =>
+                                            updateNeed(c, groupIndex, ni, (n) =>
+                                              n.kind === 'combo' ? removeOption(n, si, id) : n,
+                                            ),
+                                          )
+                                      : undefined
+                                  }
+                                />
+                              ))}
                             </div>
                           ))}
+                          <button
+                            type="button"
+                            className="button--quiet combo__copy"
+                            data-testid="combo-copy"
+                            title="Put this combo's effects in the builder below, to add a variant"
+                            onClick={() => {
+                              setCombo(need.effects);
+                              setSlots(need.anyOf?.map((slot) => [...slot]) ?? []);
+                              comboInput.current?.focus();
+                            }}
+                          >
+                            Copy to builder
+                          </button>
                         </div>
                       )}
                     </td>
@@ -282,6 +386,7 @@ function GroupCard({
                     </td>
                     <td>
                       <ImportanceSelect
+                        testId="need-importance"
                         value={need.importance}
                         onChange={(importance) => importance && setNeed(ni, { importance })}
                       />
@@ -353,20 +458,21 @@ function GroupCard({
             }
           />
         </div>
-        <div className="field">
+        <div className="field combo-builder">
           <span>Combo (same relic)</span>
-          {combo.map((id) => (
-            <button
-              key={id}
-              type="button"
-              className="button--quiet chip"
-              title="Remove"
-              onClick={() => setCombo(combo.filter((x) => x !== id))}
-            >
-              {index.meta(id)?.name ?? id} ×
-            </button>
-          ))}
-          {combo.length < 6 && (
+          <div className="combo-builder__row">
+            <span className="muted">All of</span>
+            {combo.map((id) => (
+              <button
+                key={id}
+                type="button"
+                className="button--quiet chip"
+                title="Remove"
+                onClick={() => setCombo(combo.filter((x) => x !== id))}
+              >
+                {index.meta(id)?.name ?? id} ×
+              </button>
+            ))}
             <EffectPicker
               index={index}
               placeholder="Add an effect to the combo…"
@@ -374,27 +480,69 @@ function GroupCard({
               inputRef={comboInput}
               onPick={(id) => !combo.includes(id) && setCombo([...combo, id])}
             />
-          )}
-          <button
-            type="button"
-            disabled={combo.length < 2}
-            data-testid="group-combo-add"
-            onClick={() => {
-              addNeed({
-                kind: 'combo',
-                effects: combo,
-                copies: 1,
-                colorScope: 'perColor',
-                importance: 'mustKeep',
-                relics: 'any',
-              });
-              setCombo([]);
-              // Ready for the next combo.
-              comboInput.current?.focus();
-            }}
-          >
-            Add combo
-          </button>
+          </div>
+          {slots.map((slot, si) => (
+            // biome-ignore lint/suspicious/noArrayIndexKey: slots are positional
+            <div key={si} className="combo-builder__row">
+              <span className="muted">+ any one of</span>
+              {slot.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  className="button--quiet chip"
+                  title="Remove"
+                  onClick={() =>
+                    setSlots(slots.map((s, i) => (i === si ? s.filter((x) => x !== id) : s)))
+                  }
+                >
+                  {index.meta(id)?.name ?? id} ×
+                </button>
+              ))}
+              <EffectPicker
+                index={index}
+                placeholder="Add an alternative…"
+                testId="group-combo-any"
+                onPick={(id) =>
+                  !slot.includes(id) && setSlots(slots.map((s, i) => (i === si ? [...s, id] : s)))
+                }
+              />
+              <button
+                type="button"
+                className="button--quiet"
+                title="Remove this slot"
+                onClick={() => setSlots(slots.filter((_, i) => i !== si))}
+              >
+                ×
+              </button>
+            </div>
+          ))}
+          <div className="combo-builder__row">
+            <button
+              type="button"
+              className="button--quiet"
+              data-testid="group-combo-any-add"
+              title="A slot any one of several effects can fill: they all count toward the same copies"
+              onClick={() => setSlots([...slots, []])}
+            >
+              + "any of" slot
+            </button>
+            {draft && <span className="muted">{comboPreview(index, draft)}</span>}
+            <button
+              type="button"
+              disabled={!draft}
+              data-testid="group-combo-add"
+              onClick={() => {
+                if (!draft) return;
+                addNeed(draft);
+                setCombo([]);
+                setSlots([]);
+                // Ready for the next combo.
+                comboInput.current?.focus();
+              }}
+            >
+              Add combo
+            </button>
+          </div>
         </div>
       </div>
     </section>

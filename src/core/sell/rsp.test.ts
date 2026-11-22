@@ -49,6 +49,24 @@ describe('.rsp files', () => {
     expect(parsed.warnings).toEqual([]);
   });
 
+  it('round-trips combos with "any of" slots and their levels', () => {
+    const config = sample();
+    config.groups[0]?.needs.push({
+      kind: 'combo',
+      effects: [7044600],
+      anyOf: [[6611302, 6001601, 6610802]],
+      minLevels: { 6001601: 1 },
+      relics: 'any',
+      copies: 3,
+      colorScope: 'perColor',
+      importance: 'mustKeep',
+    });
+    const text = serializeRsp(config);
+    expect(parseRsp(text).config).toEqual(config);
+    const any = JSON.parse(text).groups[0].needs.at(-1).anyOf[0];
+    expect(any[1]).toEqual({ id: 6001601, name: 'Fire Attack Power Up +4', minLevel: 1 });
+  });
+
   it('writes names next to ids so the file is readable', () => {
     const doc = JSON.parse(serializeRsp(sample()));
     expect(doc.format).toBe(RSP_FORMAT);

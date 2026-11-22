@@ -30,11 +30,13 @@ import { catalog, effectName, RELIC_COLOR_NAMES, rollRules } from '../catalog/ca
 import {
   type ColorName,
   type CursePenalty,
+  comboSlots,
   cursePenalty,
   DEFAULT_GROUP,
   effectiveRules,
   type Importance,
   type Need,
+  needEffectIds,
   RELIC_COLORS,
   type RelicKind,
   type SellConfig,
@@ -252,7 +254,12 @@ export function needRelicKind(need: Need): RelicKind | 'auto' {
 
 function needLabel(need: Need, index: EffectIndex): string {
   if (need.kind === 'combo') {
-    return need.effects.map((id) => memberLabel(index, id, need.minLevels?.[id])).join(' + ');
+    const label = (id: number) => memberLabel(index, id, need.minLevels?.[id]);
+    return comboSlots(need)
+      .map((slot) =>
+        slot.length === 1 ? label(slot[0] as number) : `any of (${slot.map(label).join(' / ')})`,
+      )
+      .join(' + ');
   }
   return memberLabel(index, need.effect, need.minLevel);
 }
@@ -319,7 +326,7 @@ function matchNeed(
   spec: RelicSpec,
 ): Match | null {
   const effects = relicEffects(spec);
-  const wantedIds = need.kind === 'effect' ? [need.effect] : need.effects;
+  const wantedIds = needEffectIds(need);
   for (const curse of spec.curses) {
     if (curse === null || wantedIds.includes(curse)) continue;
     if (cursePenalty(config, need, curse) === 'dealbreaker') return null;
@@ -336,24 +343,38 @@ function matchNeed(
   let total = 0;
   let allFull = true;
   let surplus = 0;
+  // One level per option of every slot, in order, so relics compare position by position.
   const levels: number[] = [];
-  for (const id of need.effects) {
-    const meta = index.meta(id);
-    const m = meta
-      ? matchEffect(index, meta, need.minLevels?.[id] ?? meta.level, effects, !need.relics)
-      : effects.includes(id)
-        ? { full: true, weight: 1, effect: id, levels: [0], surplus: 0 }
-        : null;
-    if (!m?.full) allFull = false;
-    total += m?.weight ?? 0;
-    surplus += m?.full ? m.surplus : 0;
-    levels.push(m?.levels[0] ?? -1);
+  const slots = comboSlots(need);
+  for (const slot of slots) {
+    let best: Match | null = null;
+    for (const id of slot) {
+      const meta = index.meta(id);
+      const m = meta
+        ? matchEffect(index, meta, need.minLevels?.[id] ?? meta.level, effects, !need.relics)
+        : effects.includes(id)
+          ? { full: true, weight: 1, effect: id, levels: [0], surplus: 0 }
+          : null;
+      levels.push(m?.levels[0] ?? -1);
+      // Any option fills the slot: the best one counts.
+      if (
+        m &&
+        (!best ||
+          (m.full && !best.full) ||
+          (m.full === best.full && (m.weight > best.weight || m.surplus > best.surplus)))
+      ) {
+        best = m;
+      }
+    }
+    if (!best?.full) allFull = false;
+    total += best?.weight ?? 0;
+    surplus += best?.full ? best.surplus : 0;
   }
   if (allFull) return { full: true, weight: 1, effect: null, levels, surplus };
   if (total <= 0) return null;
   return {
     full: false,
-    weight: (PARTIAL_COMBO_FACTOR * total) / need.effects.length,
+    weight: (PARTIAL_COMBO_FACTOR * total) / slots.length,
     effect: null,
     levels,
     surplus: 0,
@@ -596,7 +617,7 @@ export function planSell(
   for (const group of config.groups) {
     for (const need of group.needs) {
       if (need.importance === 'ignore') {
-        for (const id of need.kind === 'effect' ? [need.effect] : need.effects) {
+        for (const id of needEffectIds(need)) {
           const family = index.meta(id)?.family;
           if (family) ignoredFamilies.add(family);
         }

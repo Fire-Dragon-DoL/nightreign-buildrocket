@@ -62,12 +62,28 @@ export interface EffectNeed extends NeedBase {
 /** Keep relics carrying all these effects at once (supersets match, partial matches are backups). */
 export interface ComboNeed extends NeedBase {
   kind: 'combo';
+  /** Effects the relic must all have. */
   effects: number[];
+  /**
+   * Slots filled by any one of their effects ("Dragon Communion + any of Incantations / Affinity /
+   * Fire"): every option counts toward the same copies.
+   */
+  anyOf?: number[][];
   /** Effect id → lowest level that counts for that member (default: the member's own level). */
   minLevels?: Record<number, number>;
 }
 
 export type Need = EffectNeed | ComboNeed;
+
+/** Every effect a need names (combo members and their "any of" options). */
+export const needEffectIds = (need: Need): number[] =>
+  need.kind === 'effect' ? [need.effect] : [...need.effects, ...(need.anyOf ?? []).flat()];
+
+/** Slots of a combo: each required effect alone, then the "any of" slots. */
+export const comboSlots = (need: ComboNeed): number[][] => [
+  ...need.effects.map((id) => [id]),
+  ...(need.anyOf ?? []),
+];
 
 /** The one list of needs a plan has (older files may hold several named groups). */
 export const DEFAULT_GROUP = 'General';
@@ -152,7 +168,7 @@ export function configEffectIds(config: SellConfig): number[] {
   for (const [a, b] of [...r.noStack, ...r.stack]) ids.add(a).add(b);
   for (const group of config.groups) {
     for (const need of group.needs) {
-      for (const id of need.kind === 'effect' ? [need.effect] : need.effects) ids.add(id);
+      for (const id of needEffectIds(need)) ids.add(id);
       for (const id of Object.keys(need.curseOverrides ?? {})) ids.add(Number(id));
     }
   }

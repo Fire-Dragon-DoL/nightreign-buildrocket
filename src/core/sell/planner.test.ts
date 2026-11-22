@@ -401,3 +401,56 @@ it('reports progress', () => {
   });
   expect(calls.at(-1)).toBe(2);
 });
+
+describe('combos with "any of" slots', () => {
+  const DRAGON = 7044600;
+  const AFFINITY_2 = 6610802;
+  // Dragon Communion + any of Incantations +2 / Fire +4 / Affinity +2, 3 in total.
+  const combo: Need = {
+    kind: 'combo',
+    effects: [DRAGON],
+    anyOf: [[INCANT_2, FIRE_4, AFFINITY_2]],
+    relics: 'any',
+    copies: 3,
+    colorScope: 'any',
+    importance: 'mustKeep',
+  };
+
+  it('any option fills the slot, and all options count toward the same copies', () => {
+    const relics = [
+      relic(DEEP_RED, [DRAGON, INCANT_2]),
+      relic(DEEP_RED, [DRAGON, FIRE_4]),
+      relic(DEEP_RED, [DRAGON, AFFINITY_2]),
+      relic(DEEP_RED, [DRAGON, MAX_FP]),
+    ];
+    const plan = planSell(relics, config([combo]));
+    expect(plan.needs[0]).toMatchObject({
+      label:
+        'Improved Dragon Communion Incantations + any of (Improved Incantations +2 / Fire Attack Power Up +4 / Improved Affinity Attack Power +2)',
+      full: 3,
+    });
+    // Dragon Communion without any of the options doesn't count: it can go.
+    expect(plan.sell.map((e) => e.spec)).toEqual([relics[3]]);
+    expect(plan.kept).toHaveLength(3);
+  });
+
+  it('copies are shared: beyond the target, extra pairings are spares', () => {
+    const relics = [
+      relic(DEEP_RED, [DRAGON, INCANT_2]),
+      relic(DEEP_RED, [DRAGON, INCANT_2]),
+      relic(DEEP_RED, [DRAGON, FIRE_4]),
+      relic(DEEP_RED, [DRAGON, AFFINITY_2]),
+    ];
+    const plan = planSell(relics, config([combo]));
+    expect(plan.kept).toHaveLength(3);
+    expect(plan.sell.reduce((n, e) => n + e.count, 0)).toBe(1);
+  });
+
+  it('a relic with another option is not a cover', () => {
+    const fire = relic(DEEP_RED, [DRAGON, FIRE_4]);
+    const incant = relic(DEEP_RED, [DRAGON, INCANT_2]);
+    const plan = planSell([fire, incant], config([{ ...combo, copies: 1, importance: 'low' }]));
+    expect(plan.sell).toHaveLength(1);
+    expect(plan.sell[0]?.verdict).toBe('spares');
+  });
+});

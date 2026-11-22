@@ -36,6 +36,8 @@ interface NeedJson {
   kind: 'effect' | 'combo';
   effect?: Named;
   effects?: (Named & { minLevel?: number })[];
+  /** Combo slots filled by any one of their effects. */
+  anyOf?: (Named & { minLevel?: number })[][];
   relics?: RelicKind;
   minLevel?: number;
   copies: number;
@@ -69,6 +71,10 @@ const entries = <V>(record: Record<number, V>) =>
   Object.entries(record).map(([id, value]) => [Number(id), value] as const);
 
 function needToJson(need: Need): NeedJson {
+  const member = (id: number) => {
+    const minLevel = need.kind === 'combo' ? need.minLevels?.[id] : undefined;
+    return minLevel === undefined ? effect(id) : { ...effect(id), minLevel };
+  };
   const json: NeedJson =
     need.kind === 'effect'
       ? {
@@ -80,10 +86,8 @@ function needToJson(need: Need): NeedJson {
         }
       : {
           kind: 'combo',
-          effects: need.effects.map((id) => {
-            const minLevel = need.minLevels?.[id];
-            return minLevel === undefined ? effect(id) : { ...effect(id), minLevel };
-          }),
+          effects: need.effects.map(member),
+          ...(need.anyOf?.length ? { anyOf: need.anyOf.map((slot) => slot.map(member)) } : {}),
           copies: need.copies,
           colorScope: need.colorScope,
           importance: need.importance,
@@ -190,15 +194,23 @@ function needFromJson(value: unknown): Need {
   if (n.kind === 'combo') {
     const members = list(n.effects, 'combo effects');
     const effects = members.map((e) => idOf(e, 'combo effect'));
+    const slots = n.anyOf === undefined ? [] : list(n.anyOf, 'combo "any of"');
+    const anyOf = slots.map((slot) =>
+      list(slot, 'combo "any of" slot').map((e) => idOf(e, 'combo effect')),
+    );
     const minLevels: Record<number, number> = {};
-    for (const m of members) {
+    for (const m of [...members, ...slots.flatMap((slot) => slot as unknown[])]) {
       const level = (m as { minLevel?: unknown }).minLevel;
       if (level === undefined) continue;
       if (typeof level !== 'number') throw new RspError('Invalid combo minimum level.');
       minLevels[idOf(m, 'combo effect')] = level;
     }
-    if (effects.length === 0) throw new RspError('A combo needs at least one effect.');
+    if (effects.length + anyOf.length === 0) {
+      throw new RspError('A combo needs at least one effect.');
+    }
+    if (anyOf.some((slot) => slot.length === 0)) throw new RspError('Empty combo "any of" slot.');
     const combo: Need = { kind: 'combo', effects, ...base, ...extra };
+    if (anyOf.length > 0) combo.anyOf = anyOf;
     if (Object.keys(minLevels).length > 0) combo.minLevels = minLevels;
     return combo;
   }
@@ -264,7 +276,11 @@ export function parseRsp(text: string): ParsedRsp {
     group.needs = group.needs.map((n) =>
       n.kind === 'effect'
         ? { ...n, effect: canonical(n.effect) }
-        : { ...n, effects: n.effects.map(canonical) },
+        : {
+            ...n,
+            effects: n.effects.map(canonical),
+            ...(n.anyOf ? { anyOf: n.anyOf.map((slot) => slot.map(canonical)) } : {}),
+          },
     );
   }
   const config: SellConfig = { effectRules, groups, neverSell };

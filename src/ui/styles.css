@@ -833,3 +833,36 @@ input.group-card__name {
 select.level-select {
   font-size: 0.85rem;
 }
+
+/* "Any of" slots: options that count toward the same copies. */
+.combo__any {
+  display: grid;
+  gap: 0.1rem;
+  margin-left: 0.5rem;
+  padding-left: 0.6rem;
+  border-left: 2px solid var(--accent);
+}
+
+.combo__any-tag {
+  font-size: 0.75rem;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.combo__copy {
+  justify-self: start;
+  font-size: 0.8rem;
+}
+
+.combo-builder {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.combo-builder__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}

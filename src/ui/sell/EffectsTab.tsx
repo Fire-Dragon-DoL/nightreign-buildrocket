@@ -6,6 +6,7 @@ import {
   type CursePenalty,
   type EffectNeed,
   type Importance,
+  needEffectIds,
   RELIC_COLORS,
   type SellConfig,
 } from '../../core/sell/config.ts';
@@ -68,9 +69,7 @@ export function EffectsTab({ kind, config, update, index, owned }: Props) {
   };
   const otherGroups = (id: number) =>
     config.groups.filter(
-      (g) =>
-        g.name !== groupName &&
-        g.needs.some((n) => (n.kind === 'effect' ? n.effect === id : n.effects.includes(id))),
+      (g) => g.name !== groupName && g.needs.some((n) => needEffectIds(n).includes(id)),
     ).length;
 
   const families = useMemo(() => {
