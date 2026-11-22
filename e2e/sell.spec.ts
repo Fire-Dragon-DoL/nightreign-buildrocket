@@ -83,6 +83,9 @@ test('plans what to sell, saves and reloads the plan, seeds from builds', async 
   // Empty plan: everything sellable is listed, the godroll flagged.
   await expect(page.getByTestId('sell-summary')).toContainText('5 relic(s) can be sold, 0 kept');
   await expect(page.locator('.flag--godroll')).toHaveText('Possible godroll');
+  // Each effect shows relics per color, owned → left after selling everything shown.
+  await expect(page.getByTestId('owned-left').first()).toBeVisible();
+  await expect(page.locator('.owned-left__n--sold').first()).toContainText('→');
 
   // Want 2 red Magic Attack +2 as "must keep": two of the three are kept.
   await page.getByTestId('tab-normal').click();

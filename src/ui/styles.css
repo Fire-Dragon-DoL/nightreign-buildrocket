@@ -923,3 +923,43 @@ tr.need-row--drop-below > td {
   margin-top: 0.2rem;
   font-size: 0.8rem;
 }
+
+/* Relics with an effect per color, owned → left after selling everything shown. */
+.owned-left {
+  display: inline-flex;
+  gap: 0.25rem;
+  margin-left: 0.6rem;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.owned-left__n {
+  min-width: 1.4rem;
+  padding: 0 0.25rem;
+  border-radius: var(--radius);
+  text-align: center;
+  opacity: 0.75;
+}
+
+.owned-left__n--red {
+  color: var(--red);
+}
+
+.owned-left__n--blue {
+  color: var(--blue);
+}
+
+.owned-left__n--yellow {
+  color: var(--yellow);
+}
+
+.owned-left__n--green {
+  color: var(--green);
+}
+
+.owned-left__n--sold {
+  opacity: 1;
+  font-weight: 600;
+  background: var(--panel-2);
+}

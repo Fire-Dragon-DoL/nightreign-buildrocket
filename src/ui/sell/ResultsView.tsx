@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { RelicSpec } from '../../core/builds/builds.ts';
-import { IMPORTANCE_LABELS } from '../../core/sell/config.ts';
+import { catalog } from '../../core/catalog/catalog.ts';
+import { IMPORTANCE_LABELS, RELIC_COLORS } from '../../core/sell/config.ts';
+import { countEffects, leftAfter, type OwnedCounts } from '../../core/sell/owned.ts';
 import type { SellPlan } from '../../core/sell/planner.ts';
 import type { SellSection } from '../../core/sell/sections.ts';
 import { RelicCell, RelicEffects } from '../components/RelicParts.tsx';
@@ -9,8 +11,34 @@ import { WhyCell } from './WhyCell.tsx';
 interface Props {
   plan: SellPlan;
   sections: SellSection[];
+  /** Relics owned per effect and color (null: unknown). */
+  owned?: OwnedCounts | null;
   /** Open the combo builder with this relic's effects. */
   onCopyToBuilder?: (spec: RelicSpec) => void;
+}
+
+const canonicalEffect = (id: number) => catalog().canonicalEffect(id);
+
+/**
+ * Relics with this effect per color: owned, and what's left after selling everything shown
+ * ("5→3"). Lets you check you're not selling too many of one effect.
+ */
+function OwnedLeft({ counts }: { counts: { owned: number; left: number }[] }) {
+  const title = counts
+    .map((c, i) => `${RELIC_COLORS[i]}: own ${c.owned}, ${c.left} left after selling all shown`)
+    .join('\n');
+  return (
+    <span className="owned-left" title={title} data-testid="owned-left">
+      {counts.map((c, i) => (
+        <span
+          key={RELIC_COLORS[i]}
+          className={`owned-left__n owned-left__n--${(RELIC_COLORS[i] ?? '').toLowerCase()}${c.left < c.owned ? ' owned-left__n--sold' : ''}`}
+        >
+          {c.owned === 0 ? '·' : c.left < c.owned ? `${c.owned}→${c.left}` : c.owned}
+        </span>
+      ))}
+    </span>
+  );
 }
 
 const FLAG_LABELS = { godroll: 'Possible godroll', stackingUnknown: 'Stacking unknown' } as const;
@@ -24,7 +52,7 @@ const searchText = (filters: string[][]) =>
     ? 'no effect filter (show all of this kind)'
     : filters.map((f) => (f.length > 1 ? `(${f.join(' or ')})` : (f[0] ?? ''))).join(' and ');
 
-export function ResultsView({ plan, sections, onCopyToBuilder }: Props) {
+export function ResultsView({ plan, sections, onCopyToBuilder, owned = null }: Props) {
   const copy = (spec: RelicSpec) =>
     onCopyToBuilder && spec.effects.filter((e) => e !== null).length > 0 ? (
       <button
@@ -41,6 +69,13 @@ export function ResultsView({ plan, sections, onCopyToBuilder }: Props) {
   const visible = (risk: number) => risk <= maxRisk;
   const shownCount = plan.sell.filter((e) => visible(e.risk)).reduce((n, e) => n + e.count, 0);
   const short = plan.needs.filter((n) => n.coverage + 1e-9 < n.target);
+  // What selling every relic shown would leave, per effect and color.
+  const sold = useMemo(
+    () => countEffects(plan.sell.filter((e) => e.risk <= maxRisk)),
+    [plan, maxRisk],
+  );
+  const counts = (effect: number) =>
+    owned ? <OwnedLeft counts={leftAfter(owned, sold, canonicalEffect(effect))} /> : null;
 
   return (
     <div className="results">
@@ -110,6 +145,15 @@ export function ResultsView({ plan, sections, onCopyToBuilder }: Props) {
         </details>
       )}
 
+      {owned && plan.sell.length > 0 && (
+        <p className="muted">
+          Next to each effect: relics with it in <span className="why__color--red">red</span> /{' '}
+          <span className="why__color--blue">blue</span> /{' '}
+          <span className="why__color--yellow">yellow</span> /{' '}
+          <span className="why__color--green">green</span>, as <b>owned → left</b> after selling
+          everything shown.
+        </p>
+      )}
       {sections.map((section) => {
         const entries = section.entries.filter((e) => visible(e.risk));
         if (entries.length === 0) return null;
@@ -144,7 +188,7 @@ export function ResultsView({ plan, sections, onCopyToBuilder }: Props) {
                   <tr key={`${e.key}#${e.verdict}#${e.risk}`} data-testid="sell-row">
                     <RelicCell relic={e.spec} />
                     <td>
-                      <RelicEffects relic={e.spec} />
+                      <RelicEffects relic={e.spec} aside={counts} />
                       {copy(e.spec)}
                     </td>
                     <td className="missing__copies">
@@ -196,7 +240,7 @@ export function ResultsView({ plan, sections, onCopyToBuilder }: Props) {
                 <tr key={`${e.key}#${e.risk}`} data-testid="short-row">
                   <RelicCell relic={e.spec} />
                   <td>
-                    <RelicEffects relic={e.spec} />
+                    <RelicEffects relic={e.spec} aside={counts} />
                     {copy(e.spec)}
                   </td>
                   <td className="missing__copies">

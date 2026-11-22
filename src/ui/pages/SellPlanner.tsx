@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { RelicSpec } from '../../core/builds/builds.ts';
-import { catalog } from '../../core/catalog/catalog.ts';
 import { relicsOfBuilds } from '../../core/compare/missing.ts';
 import { effectiveRules, emptyConfig, type SellConfig } from '../../core/sell/config.ts';
 import { sellPlanToCsv } from '../../core/sell/csv.ts';
 import { buildEffectIndex } from '../../core/sell/effects.ts';
+import { ownedCounts } from '../../core/sell/owned.ts';
 import type { SellPlan } from '../../core/sell/planner.ts';
 import { parseRsp, serializeRsp } from '../../core/sell/rsp.ts';
 import type { SellSection } from '../../core/sell/sections.ts';
@@ -23,7 +23,7 @@ import { ProgressBar } from '../components/ProgressBar.tsx';
 import { fileSafe } from '../fileSafe.ts';
 import { type Builder, builderFromRelic, emptyBuilder } from '../sell/builder.ts';
 import type { ConfigUpdate } from '../sell/configEdit.ts';
-import { EffectsTab, type OwnedCounts } from '../sell/EffectsTab.tsx';
+import { EffectsTab } from '../sell/EffectsTab.tsx';
 import { GroupsTab } from '../sell/GroupsTab.tsx';
 import { ResultsView } from '../sell/ResultsView.tsx';
 import { StackingTab } from '../sell/StackingTab.tsx';
@@ -43,24 +43,6 @@ type Run =
   | { status: 'running'; progress: number }
   | { status: 'done'; plan: SellPlan; sections: SellSection[]; ms: number }
   | { status: 'error'; message: string };
-
-const COLOR_INDEX: Record<number, number> = { 0: 0, 1: 1, 2: 2, 3: 3 };
-
-function ownedCounts(pool: RelicSpec[]): OwnedCounts {
-  const counts: OwnedCounts = new Map();
-  for (const relic of pool) {
-    const color = COLOR_INDEX[catalog().relic(relic.itemId)?.color ?? -1];
-    if (color === undefined) continue;
-    for (const raw of [...relic.effects, ...relic.curses]) {
-      if (raw === null) continue;
-      const id = catalog().canonicalEffect(raw);
-      const row = counts.get(id) ?? [0, 0, 0, 0];
-      row[color] = (row[color] ?? 0) + 1;
-      counts.set(id, row);
-    }
-  }
-  return counts;
-}
 
 /** Sell Planner (goal 3): which relics can go, ranked by risk, for a saved config. */
 export function SellPlanner() {
@@ -287,6 +269,7 @@ export function SellPlanner() {
               </div>
               <ResultsView
                 plan={run.plan}
+                owned={owned}
                 sections={run.sections}
                 onCopyToBuilder={(spec) => {
                   setBuilder((b) => builderFromRelic(spec, index, b.focus + 1));

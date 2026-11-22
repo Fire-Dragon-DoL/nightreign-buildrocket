@@ -11,6 +11,7 @@ import {
   type SellConfig,
 } from '../../core/sell/config.ts';
 import type { EffectIndex, EffectMeta } from '../../core/sell/effects.ts';
+import type { OwnedCounts } from '../../core/sell/owned.ts';
 import {
   type ConfigUpdate,
   DEFAULT_GROUP,
@@ -28,7 +29,6 @@ import {
 } from './controls.tsx';
 
 /** Owned relics per effect id: counts per color (Red, Blue, Yellow, Green). */
-export type OwnedCounts = Map<number, number[]>;
 
 interface Props {
   kind: 'normal' | 'deep';

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { RelicSpec } from '../../core/builds/builds.ts';
 import {
   catalog,
@@ -26,7 +27,14 @@ export function RelicCell({ relic }: { relic: RelicSpec }) {
 }
 
 /** Effects stacked vertically (each curse right under its effect), so names never wrap. */
-export function RelicEffects({ relic }: { relic: RelicSpec }) {
+export function RelicEffects({
+  relic,
+  aside,
+}: {
+  relic: RelicSpec;
+  /** Extra content shown at the end of each effect's line. */
+  aside?: (effect: number) => ReactNode;
+}) {
   return (
     <ul className="effects">
       {relic.effects.map((effect, i) => {
@@ -38,6 +46,7 @@ export function RelicEffects({ relic }: { relic: RelicSpec }) {
             <div className="named">
               <GameIcon src={effectIcon(effect)} />
               <span>{effectName(effect)}</span>
+              {aside?.(effect)}
             </div>
             {curse !== null && (
               <div className="named named--curse">
