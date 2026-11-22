@@ -850,8 +850,9 @@ select.level-select {
   letter-spacing: 0.04em;
 }
 
-.combo__copy {
-  justify-self: start;
+.combo__actions {
+  display: flex;
+  gap: 0.3rem;
   font-size: 0.8rem;
 }
 
@@ -865,4 +866,60 @@ select.level-select {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.4rem;
+}
+
+.combo-builder__label {
+  min-width: 6.5rem;
+}
+
+.combo-builder__row[data-over="true"],
+.combo-builder__new-slot[data-over="true"] {
+  outline: 2px dashed var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+.combo-builder__row--any {
+  border-left: 2px solid var(--accent);
+  padding-left: 0.5rem;
+}
+
+.chip--drag {
+  cursor: grab;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.chip__remove {
+  padding: 0 0.2rem;
+  background: none;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+}
+
+.need-row__handle span {
+  cursor: grab;
+  user-select: none;
+  color: var(--muted, inherit);
+  padding: 0 0.2rem;
+}
+
+.need-row--dragging {
+  opacity: 0.5;
+}
+
+tr.need-row--drop-above > td {
+  box-shadow: inset 0 2px 0 var(--accent);
+}
+
+tr.need-row--drop-below > td {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.copy-to-builder {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.8rem;
 }

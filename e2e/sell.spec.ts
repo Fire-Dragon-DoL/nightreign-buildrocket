@@ -124,29 +124,49 @@ test('plans what to sell, saves and reloads the plan, seeds from builds', async 
   await expect(page.getByTestId('rsp-status')).not.toContainText('· 1 need(s)');
 });
 
-test('builds a combo with an "any of" slot, then is ready for the next one', async ({ page }) => {
+test('builds, edits and reorders combos; copies a relic from the results', async ({ page }) => {
   await page.goto(SELL_URL);
   await page.getByTestId('sell-input').setInputFiles(await save());
-  await page.getByTestId('tab-groups').click();
 
-  // Dragon Communion + any of Incantations +2 / Fire +4.
-  await page.getByTestId('group-combo-effect').fill('x #7044600');
-  await page.getByTestId('group-combo-any-add').click();
-  await page.getByTestId('group-combo-any').fill('x #6611302');
-  await page.getByTestId('group-combo-any').fill('x #6001601');
-  await expect(page.getByText('2 pairings, counted together')).toBeVisible();
-  await page.getByTestId('group-combo-add').click();
-
-  const row = page.getByTestId('need-row');
-  await expect(row).toHaveCount(1);
-  await expect(row.getByTestId('combo-any')).toContainText('Improved Incantations +2');
-  await expect(row.getByTestId('combo-any')).toContainText('Fire Attack Power Up +4');
-  // New combos: must keep, 1 per color; the builder is empty and focused.
-  await expect(row.getByTestId('need-importance')).toHaveValue('mustKeep');
+  // A relic from the results opens the builder with its effects.
+  await page.getByTestId('copy-to-builder').first().click();
+  await expect(page.getByTestId('combo-builder')).toBeVisible();
+  await expect(page.getByTestId('builder-all').getByTestId('builder-chip')).not.toHaveCount(0);
   await expect(page.getByTestId('group-combo-effect')).toBeFocused();
-  await expect(page.getByTestId('group-combo-any')).toHaveCount(0);
+  await page.getByTestId('builder-clear').click();
+  await expect(page.getByTestId('builder-chip')).toHaveCount(0);
 
-  // Copy to builder brings it back for a variant.
-  await row.getByTestId('combo-copy').click();
-  await expect(page.getByTestId('group-combo-any')).toHaveCount(1);
+  // Dragon Communion + Incantations +2 + Fire +4, then drag the last two into an "any of" slot.
+  const all = page.getByTestId('group-combo-effect');
+  for (const id of [7044600, 6611302, 6001601]) await all.fill(`x #${id}`);
+  const chip = (name: string) => page.getByTestId('builder-chip').filter({ hasText: name });
+  await chip('Improved Incantations +2').dragTo(page.getByTestId('group-combo-any-add'));
+  await chip('Fire Attack Power Up +4').dragTo(page.getByTestId('builder-any'));
+  await expect(page.getByTestId('builder-any').getByTestId('builder-chip')).toHaveCount(2);
+  await expect(page.getByText('2 pairings, counted together')).toBeVisible();
+  // Enter on the empty field adds the combo, and the builder is ready for the next one.
+  await all.press('Enter');
+
+  const rows = page.getByTestId('need-row');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.getByTestId('combo-any')).toContainText('Fire Attack Power Up +4');
+  await expect(rows.getByTestId('need-importance')).toHaveValue('mustKeep');
+  await expect(all).toBeFocused();
+  await expect(page.getByTestId('builder-chip')).toHaveCount(0);
+
+  // Edit: add Affinity +2 to the slot, save with Enter: the same row changes.
+  await rows.getByTestId('need-importance').selectOption('high');
+  await rows.getByTestId('combo-edit').click();
+  await page.getByTestId('group-combo-any').fill('x #6610802');
+  await all.press('Enter');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.getByTestId('combo-any')).toContainText('Improved Affinity Attack Power +2');
+  await expect(rows.getByTestId('need-importance')).toHaveValue('high');
+
+  // A single effect, then drag it above the combo.
+  await page.getByTestId('group-add-effect').fill('x #7001502');
+  await expect(rows).toHaveCount(2);
+  await rows.nth(1).getByTestId('need-drag').dragTo(rows.nth(0));
+  await expect(rows.nth(0)).toContainText('Magic Attack Power Up +2');
+  await expect(rows.nth(1).getByTestId('combo-any')).toBeVisible();
 });

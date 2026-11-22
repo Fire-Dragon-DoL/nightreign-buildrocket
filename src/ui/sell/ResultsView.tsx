@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { RelicSpec } from '../../core/builds/builds.ts';
 import { IMPORTANCE_LABELS } from '../../core/sell/config.ts';
 import type { SellPlan } from '../../core/sell/planner.ts';
 import type { SellSection } from '../../core/sell/sections.ts';
@@ -8,6 +9,8 @@ import { WhyCell } from './WhyCell.tsx';
 interface Props {
   plan: SellPlan;
   sections: SellSection[];
+  /** Open the combo builder with this relic's effects. */
+  onCopyToBuilder?: (spec: RelicSpec) => void;
 }
 
 const FLAG_LABELS = { godroll: 'Possible godroll', stackingUnknown: 'Stacking unknown' } as const;
@@ -21,7 +24,19 @@ const searchText = (filters: string[][]) =>
     ? 'no effect filter (show all of this kind)'
     : filters.map((f) => (f.length > 1 ? `(${f.join(' or ')})` : (f[0] ?? ''))).join(' and ');
 
-export function ResultsView({ plan, sections }: Props) {
+export function ResultsView({ plan, sections, onCopyToBuilder }: Props) {
+  const copy = (spec: RelicSpec) =>
+    onCopyToBuilder && spec.effects.filter((e) => e !== null).length > 0 ? (
+      <button
+        type="button"
+        className="button--quiet copy-to-builder"
+        data-testid="copy-to-builder"
+        title="Open the combo builder with this relic's effects"
+        onClick={() => onCopyToBuilder(spec)}
+      >
+        Copy relic to builder
+      </button>
+    ) : null;
   const [maxRisk, setMaxRisk] = useState(99);
   const visible = (risk: number) => risk <= maxRisk;
   const shownCount = plan.sell.filter((e) => visible(e.risk)).reduce((n, e) => n + e.count, 0);
@@ -130,6 +145,7 @@ export function ResultsView({ plan, sections }: Props) {
                     <RelicCell relic={e.spec} />
                     <td>
                       <RelicEffects relic={e.spec} />
+                      {copy(e.spec)}
                     </td>
                     <td className="missing__copies">
                       {e.count} of {e.owned}
@@ -181,6 +197,7 @@ export function ResultsView({ plan, sections }: Props) {
                   <RelicCell relic={e.spec} />
                   <td>
                     <RelicEffects relic={e.spec} />
+                    {copy(e.spec)}
                   </td>
                   <td className="missing__copies">
                     {e.count} of {e.owned}
@@ -218,6 +235,7 @@ export function ResultsView({ plan, sections }: Props) {
                   <RelicCell relic={k.spec} />
                   <td>
                     <RelicEffects relic={k.spec} />
+                    {copy(k.spec)}
                   </td>
                   <td className="missing__copies">
                     {k.count} of {k.owned}

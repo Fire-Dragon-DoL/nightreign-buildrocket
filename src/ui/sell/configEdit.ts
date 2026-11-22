@@ -169,3 +169,14 @@ export const acceptLowerLevels = (config: SellConfig, index: EffectIndex): SellC
     needs: g.needs.map((n) => withDefaultLevels(n, index)),
   })),
 });
+
+/** Move a need within its group (drag and drop in the list). */
+export function moveNeed(config: SellConfig, group: number, from: number, to: number): SellConfig {
+  return updateGroup(config, group, (g) => {
+    const needs = g.needs.slice();
+    const [moved] = needs.splice(from, 1);
+    if (!moved) return g;
+    needs.splice(Math.max(0, Math.min(to, needs.length)), 0, moved);
+    return { ...g, needs };
+  });
+}

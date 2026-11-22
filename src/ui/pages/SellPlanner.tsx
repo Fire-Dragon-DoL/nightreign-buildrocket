@@ -21,6 +21,7 @@ import { FileDrop } from '../components/FileDrop.tsx';
 import { FileSourcePicker } from '../components/FileSourcePicker.tsx';
 import { ProgressBar } from '../components/ProgressBar.tsx';
 import { fileSafe } from '../fileSafe.ts';
+import { type Builder, builderFromRelic, emptyBuilder } from '../sell/builder.ts';
 import type { ConfigUpdate } from '../sell/configEdit.ts';
 import { EffectsTab, type OwnedCounts } from '../sell/EffectsTab.tsx';
 import { GroupsTab } from '../sell/GroupsTab.tsx';
@@ -80,6 +81,8 @@ export function SellPlanner() {
   const [configMessage, setConfigMessage] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [tab, setTab] = useState<Tab>('results');
+  const [builder, setBuilderState] = useState<Builder>(() => emptyBuilder());
+  const setBuilder = useCallback((fn: (b: Builder) => Builder) => setBuilderState(fn), []);
 
   const update: ConfigUpdate = useCallback((fn) => {
     setConfig((c) => fn(c));
@@ -282,7 +285,14 @@ export function SellPlanner() {
                   Export CSV
                 </button>
               </div>
-              <ResultsView plan={run.plan} sections={run.sections} />
+              <ResultsView
+                plan={run.plan}
+                sections={run.sections}
+                onCopyToBuilder={(spec) => {
+                  setBuilder((b) => builderFromRelic(spec, index, b.focus + 1));
+                  setTab('groups');
+                }}
+              />
             </>
           )}
         </section>
@@ -298,7 +308,14 @@ export function SellPlanner() {
         />
       )}
       {tab === 'groups' && (
-        <GroupsTab config={config} update={update} index={index} character={character} />
+        <GroupsTab
+          config={config}
+          update={update}
+          index={index}
+          character={character}
+          builder={builder}
+          setBuilder={setBuilder}
+        />
       )}
       {tab === 'stacking' && (
         <StackingTab config={config} update={update} index={index} defaults={defaults} />

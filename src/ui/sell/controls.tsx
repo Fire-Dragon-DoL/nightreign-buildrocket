@@ -141,12 +141,15 @@ export function EffectPicker({
   placeholder = 'Search an effect…',
   testId,
   inputRef,
+  onEnter,
 }: {
   index: EffectIndex;
   onPick: (id: number) => void;
   placeholder?: string;
   testId?: string;
   inputRef?: Ref<HTMLInputElement>;
+  /** Enter on an empty field (nothing being searched). */
+  onEnter?: () => void;
 }) {
   const listId = useId();
   const [text, setText] = useState('');
@@ -158,6 +161,12 @@ export function EffectPicker({
         className="effect-picker"
         ref={inputRef}
         list={listId}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && text === '' && onEnter) {
+            e.preventDefault();
+            onEnter();
+          }
+        }}
         value={text}
         placeholder={placeholder}
         data-testid={testId}
