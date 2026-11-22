@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { CharacterData } from '../../core/builds/characters.ts';
 import {
   type Need,
@@ -143,6 +143,7 @@ function GroupCard({
 }: Props & { groupIndex: number; named: boolean }) {
   const group = config.groups[groupIndex] ?? { name: DEFAULT_GROUP, needs: [] };
   const [combo, setCombo] = useState<number[]>([]);
+  const comboInput = useRef<HTMLInputElement>(null);
   const setNeed = (ni: number, patch: Partial<Need> | null) =>
     update((c) =>
       updateNeed(c, groupIndex, ni, patch === null ? null : (n) => ({ ...n, ...patch }) as Need),
@@ -370,6 +371,7 @@ function GroupCard({
               index={index}
               placeholder="Add an effect to the combo…"
               testId="group-combo-effect"
+              inputRef={comboInput}
               onPick={(id) => !combo.includes(id) && setCombo([...combo, id])}
             />
           )}
@@ -382,11 +384,13 @@ function GroupCard({
                 kind: 'combo',
                 effects: combo,
                 copies: 1,
-                colorScope: 'any',
-                importance: 'normal',
+                colorScope: 'perColor',
+                importance: 'mustKeep',
                 relics: 'any',
               });
               setCombo([]);
+              // Ready for the next combo.
+              comboInput.current?.focus();
             }}
           >
             Add combo

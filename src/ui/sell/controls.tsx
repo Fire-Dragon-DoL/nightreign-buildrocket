@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { type Ref, useId, useState } from 'react';
 import {
   type ColorName,
   type ColorScope,
@@ -140,11 +140,13 @@ export function EffectPicker({
   onPick,
   placeholder = 'Search an effect…',
   testId,
+  inputRef,
 }: {
   index: EffectIndex;
   onPick: (id: number) => void;
   placeholder?: string;
   testId?: string;
+  inputRef?: Ref<HTMLInputElement>;
 }) {
   const listId = useId();
   const [text, setText] = useState('');
@@ -154,6 +156,7 @@ export function EffectPicker({
     <>
       <input
         className="effect-picker"
+        ref={inputRef}
         list={listId}
         value={text}
         placeholder={placeholder}
