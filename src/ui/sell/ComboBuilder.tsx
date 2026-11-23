@@ -20,13 +20,15 @@ interface Props {
   index: EffectIndex;
   /** Add the combo (or save it over the one being edited). */
   onSubmit: (draft: ComboNeed) => void;
+  /** Scroll into view when filled from elsewhere (off in a popup). */
+  scroll?: boolean;
 }
 
 /**
  * Builds a combo: effects the relic must all have, and "any of" slots any one of whose effects
  * counts. Effects can be dragged between rows. Enter on an empty field adds the combo.
  */
-export function ComboBuilder({ builder, setBuilder, index, onSubmit }: Props) {
+export function ComboBuilder({ builder, setBuilder, index, onSubmit, scroll = true }: Props) {
   const allInput = useRef<HTMLInputElement>(null);
   const section = useRef<HTMLDivElement>(null);
   const [over, setOver] = useState<Place | null>(null);
@@ -36,15 +38,15 @@ export function ComboBuilder({ builder, setBuilder, index, onSubmit }: Props) {
   // Filled from another tab or a combo's Edit button: show it and get ready to type.
   useEffect(() => {
     if (builder.focus === 0) return;
-    section.current?.scrollIntoView({ block: 'center' });
-    allInput.current?.focus();
-  }, [builder.focus]);
+    if (scroll) section.current?.scrollIntoView({ block: 'center' });
+    allInput.current?.focus({ preventScroll: true });
+  }, [builder.focus, scroll]);
 
   const submit = () => {
     if (!draft) return;
     onSubmit(draft);
     setBuilder((b) => emptyBuilder(b.focus));
-    allInput.current?.focus();
+    allInput.current?.focus({ preventScroll: true });
   };
 
   const dropProps = (place: Place) => ({

@@ -508,6 +508,7 @@ function GroupCard({
                       <button
                         type="button"
                         className="button--quiet"
+                        data-testid="need-remove"
                         onClick={() => {
                           setNeed(ni, null);
                           setBuilder((b) => followEdit(b, groupIndex, ni, null));

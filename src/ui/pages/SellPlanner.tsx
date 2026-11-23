@@ -4,6 +4,7 @@ import { relicsOfBuilds } from '../../core/compare/missing.ts';
 import { effectiveRules, emptyConfig, type SellConfig } from '../../core/sell/config.ts';
 import { sellPlanToCsv } from '../../core/sell/csv.ts';
 import { buildEffectIndex } from '../../core/sell/effects.ts';
+import { withDefaultLevels } from '../../core/sell/needs.ts';
 import { ownedCounts } from '../../core/sell/owned.ts';
 import type { SellPlan } from '../../core/sell/planner.ts';
 import { parseRsp, serializeRsp } from '../../core/sell/rsp.ts';
@@ -22,7 +23,9 @@ import { FileSourcePicker } from '../components/FileSourcePicker.tsx';
 import { ProgressBar } from '../components/ProgressBar.tsx';
 import { fileSafe } from '../fileSafe.ts';
 import { type Builder, builderFromRelic, emptyBuilder } from '../sell/builder.ts';
+import { ComboDialog } from '../sell/ComboDialog.tsx';
 import type { ConfigUpdate } from '../sell/configEdit.ts';
+import { addNeeds } from '../sell/configEdit.ts';
 import { EffectsTab } from '../sell/EffectsTab.tsx';
 import { GroupsTab } from '../sell/GroupsTab.tsx';
 import { ResultsView } from '../sell/ResultsView.tsx';
@@ -65,6 +68,12 @@ export function SellPlanner() {
   const [tab, setTab] = useState<Tab>('results');
   const [builder, setBuilderState] = useState<Builder>(() => emptyBuilder());
   const setBuilder = useCallback((fn: (b: Builder) => Builder) => setBuilderState(fn), []);
+  // The builder popup opened from the results (null: closed).
+  const [popup, setPopup] = useState<Builder | null>(null);
+  const setPopupBuilder = useCallback(
+    (fn: (b: Builder) => Builder) => setPopup((p) => (p ? fn(p) : p)),
+    [],
+  );
 
   const update: ConfigUpdate = useCallback((fn) => {
     setConfig((c) => fn(c));
@@ -79,9 +88,12 @@ export function SellPlanner() {
 
   // Plan in the worker, shortly after the last change.
   const [run, setRun] = useState<Run>({ status: 'idle' });
+  // The last finished plan stays on screen while the next one runs (keeps the scroll position).
+  const [shown, setShown] = useState<Extract<Run, { status: 'done' }> | null>(null);
   useEffect(() => {
     if (!pool) {
       setRun({ status: 'idle' });
+      setShown(null);
       return;
     }
     let cancelled = false;
@@ -92,10 +104,15 @@ export function SellPlanner() {
           if (!cancelled) setRun({ status: 'running', progress: done / total });
         })
         .then(({ plan, sections, ms }) => {
-          if (!cancelled) setRun({ status: 'done', plan, sections, ms });
+          if (cancelled) return;
+          const done = { status: 'done', plan, sections, ms } as const;
+          setRun(done);
+          setShown(done);
         })
         .catch((err: unknown) => {
-          if (!cancelled) setRun({ status: 'error', message: (err as Error).message });
+          if (cancelled) return;
+          setRun({ status: 'error', message: (err as Error).message });
+          setShown(null);
         });
     }, 250);
     return () => {
@@ -240,18 +257,23 @@ export function SellPlanner() {
       {tab === 'results' && (
         <section className="builds-section">
           {!pool && <p className="muted">Load a save or builds JSON to see what you can sell.</p>}
-          {run.status === 'running' && (
+          {run.status === 'running' && !shown && (
             <ProgressBar label="Planning…" value={run.progress} testId="sell-progress" />
           )}
           {run.status === 'error' && <p className="error">{run.message}</p>}
-          {run.status === 'done' && (
+          {shown && (
             <>
               <div className="toolbar">
                 <span data-testid="sell-summary">
-                  {run.plan.sell.reduce((n, e) => n + e.count, 0)} relic(s) can be sold,{' '}
-                  {run.plan.kept.reduce((n, k) => n + k.count, 0)} kept, {run.plan.unsellable} can't
-                  be sold ({Math.round(run.ms)} ms).
+                  {shown.plan.sell.reduce((n, e) => n + e.count, 0)} relic(s) can be sold,{' '}
+                  {shown.plan.kept.reduce((n, k) => n + k.count, 0)} kept, {shown.plan.unsellable}{' '}
+                  can't be sold ({Math.round(shown.ms)} ms).
                 </span>
+                {run.status === 'running' && (
+                  <span className="muted" data-testid="sell-updating">
+                    Updating…
+                  </span>
+                )}
                 {needCount === 0 && (
                   <span className="warning">
                     Your plan is empty, so everything counts as safe to sell.
@@ -263,18 +285,15 @@ export function SellPlanner() {
                     {exportMessage}
                   </span>
                 )}
-                <button type="button" onClick={exportCsv} disabled={run.plan.sell.length === 0}>
+                <button type="button" onClick={exportCsv} disabled={shown.plan.sell.length === 0}>
                   Export CSV
                 </button>
               </div>
               <ResultsView
-                plan={run.plan}
+                plan={shown.plan}
                 owned={owned}
-                sections={run.sections}
-                onCopyToBuilder={(spec) => {
-                  setBuilder((b) => builderFromRelic(spec, index, b.focus + 1));
-                  setTab('groups');
-                }}
+                sections={shown.sections}
+                onCopyToBuilder={(spec) => setPopup(builderFromRelic(spec, index, 1))}
               />
             </>
           )}
@@ -290,6 +309,16 @@ export function SellPlanner() {
           owned={owned}
         />
       )}
+      <ComboDialog
+        builder={popup}
+        setBuilder={setPopupBuilder}
+        index={index}
+        onClose={() => setPopup(null)}
+        onSubmit={(draft) => {
+          update((c) => addNeeds(c, [withDefaultLevels(draft, index)]).config);
+          setPopup(null);
+        }}
+      />
       {tab === 'groups' && (
         <GroupsTab
           config={config}

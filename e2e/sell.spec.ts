@@ -131,13 +131,37 @@ test('builds, edits and reorders combos; copies a relic from the results', async
   await page.goto(SELL_URL);
   await page.getByTestId('sell-input').setInputFiles(await save());
 
-  // A relic from the results opens the builder with its effects.
+  // A relic from the results opens the builder in a popup; adding keeps the results' place.
+  const copy = page.getByTestId('copy-to-builder').last();
+  await copy.scrollIntoViewIfNeeded();
+  await page.mouse.wheel(0, 200);
+  const scrolled = await page.evaluate(() => window.scrollY);
+  expect(scrolled).toBeGreaterThan(0);
+  await copy.click();
+  const dialog = page.getByTestId('combo-dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByTestId('group-combo-effect')).toBeFocused();
+  // Its first effect alone: drop the others, then add a second required effect.
+  const chips = dialog.getByTestId('builder-chip');
+  while ((await chips.count()) > 1) await chips.last().locator('.chip__remove').click();
+  await dialog.getByTestId('group-combo-effect').fill('x #7001502');
+  await dialog.getByTestId('group-combo-effect').press('Enter');
+  await expect(dialog).toBeHidden();
+  await expect(page.getByTestId('sell-updating')).toHaveCount(0);
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
+  await page.getByTestId('tab-groups').click();
+  await expect(page.getByTestId('need-row')).toHaveCount(1);
+  await expect(page.getByTestId('need-row')).toContainText('Magic Attack Power Up +2');
+  await page.getByTestId('need-row').getByTestId('need-remove').click();
+  await expect(page.getByTestId('need-row')).toHaveCount(0);
+
+  // The popup closes with Esc without adding anything.
+  await page.getByTestId('tab-results').click();
   await page.getByTestId('copy-to-builder').first().click();
-  await expect(page.getByTestId('combo-builder')).toBeVisible();
-  await expect(page.getByTestId('builder-all').getByTestId('builder-chip')).not.toHaveCount(0);
-  await expect(page.getByTestId('group-combo-effect')).toBeFocused();
-  await page.getByTestId('builder-clear').click();
-  await expect(page.getByTestId('builder-chip')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('combo-dialog')).toBeHidden();
+  await page.getByTestId('tab-groups').click();
+  await expect(page.getByTestId('need-row')).toHaveCount(0);
 
   // Dragon Communion + Incantations +2 + Fire +4, then drag the last two into an "any of" slot.
   const all = page.getByTestId('group-combo-effect');

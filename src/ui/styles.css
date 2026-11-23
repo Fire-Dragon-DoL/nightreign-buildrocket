@@ -963,3 +963,34 @@ tr.need-row--drop-below > td {
   font-weight: 600;
   background: var(--panel-2);
 }
+
+/* Combo builder popup over the results. */
+.combo-dialog {
+  width: min(56rem, calc(100vw - 2rem));
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: inherit;
+}
+
+.combo-dialog::backdrop {
+  background: rgb(0 0 0 / 55%);
+}
+
+.combo-dialog__body {
+  display: grid;
+  gap: 0.6rem;
+  padding: 1rem;
+}
+
+.combo-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.combo-dialog__header h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
