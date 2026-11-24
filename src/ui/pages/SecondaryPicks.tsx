@@ -4,10 +4,10 @@ import { relicsOfBuilds } from '../../core/compare/missing.ts';
 import { picksToCsv } from '../../core/picks/csv.ts';
 import type { PickFill, PicksResult } from '../../core/picks/picks.ts';
 import {
-  type ComboNeed,
   DEFAULT_GROUP,
   effectiveRules,
   IMPORTANCE_LABELS,
+  type Need,
 } from '../../core/sell/config.ts';
 import { buildEffectIndex } from '../../core/sell/effects.ts';
 import { withDefaultLevels } from '../../core/sell/needs.ts';
@@ -82,9 +82,17 @@ export function SecondaryPicks() {
     (spec: RelicSpec) => setPopup(builderFromRelic(spec, index, 1)),
     [index],
   );
-  const addCombo = (draft: ComboNeed) => {
-    updatePlan((c) => addNeeds(c, [withDefaultLevels(draft, index)]).config);
-    setPlanMessage('Added the combo to your plan (save it at the top to keep it).');
+  const addCombo = (drafts: Need[]) => {
+    updatePlan(
+      (c) =>
+        addNeeds(
+          c,
+          drafts.map((d) => withDefaultLevels(d, index)),
+        ).config,
+    );
+    setPlanMessage(
+      `Added ${drafts.length === 1 ? 'the combo' : `${drafts.length} combos`} to your plan (save it at the top to keep it).`,
+    );
     setPopup(null);
   };
 

@@ -126,17 +126,25 @@ export function GroupsTab({
           builder={builder}
           setBuilder={setBuilder}
           index={index}
-          onSubmit={(draft) =>
+          onSubmit={(drafts) =>
             update((c) => {
               const at = builder.editing;
               const old = at && c.groups[at.group]?.needs[at.need];
-              if (at && old) {
-                return updateNeed(c, at.group, at.need, (n) =>
-                  withDefaultLevels(applyEdit(n, draft), index),
+              let rest = drafts;
+              let next = c;
+              if (at && old && drafts[0]) {
+                // Editing: the first replaces the need, any others (permutations) are added.
+                const first = drafts[0];
+                next = updateNeed(c, at.group, at.need, (n) =>
+                  withDefaultLevels(applyEdit(n, first), index),
                 );
+                rest = drafts.slice(1);
               }
-              // New needs go to the one list (merged with an identical need if there is one).
-              return addNeeds(c, [withDefaultLevels(draft, index)]).config;
+              // New needs go to the one list (merged with identical needs already there).
+              return addNeeds(
+                next,
+                rest.map((d) => withDefaultLevels(d, index)),
+              ).config;
             })
           }
         />
@@ -188,6 +196,40 @@ function LevelSelect({
         </optgroup>
       ))}
     </select>
+  );
+}
+
+/** Edit a need in the builder (Save puts it back), or copy it there to add variants. */
+function NeedActions({
+  need,
+  at,
+  setBuilder,
+}: {
+  need: Need;
+  at: { group: number; need: number };
+  setBuilder: SetBuilder;
+}) {
+  return (
+    <div className="combo__actions">
+      <button
+        type="button"
+        className="button--quiet"
+        data-testid="combo-edit"
+        title="Edit in the builder; Save puts it back here"
+        onClick={() => setBuilder((b) => builderFromNeed(need, at, b.focus + 1))}
+      >
+        Edit
+      </button>
+      <button
+        type="button"
+        className="button--quiet"
+        data-testid="combo-copy"
+        title="Put its effects in the builder, to add variants (e.g. turn it into a combo)"
+        onClick={() => setBuilder((b) => builderFromNeed(need, null, b.focus + 1))}
+      >
+        Copy to builder
+      </button>
+    </div>
   );
 }
 
@@ -381,7 +423,14 @@ function GroupCard({
                     </td>
                     <td>
                       {need.kind === 'effect' ? (
-                        <EffectName meta={meta} id={need.effect} />
+                        <div className="combo">
+                          <EffectName meta={meta} id={need.effect} />
+                          <NeedActions
+                            need={need}
+                            at={{ group: groupIndex, need: ni }}
+                            setBuilder={setBuilder}
+                          />
+                        </div>
                       ) : (
                         <div className="combo">
                           <span className="combo__tag" data-testid="combo-roll">
@@ -421,36 +470,11 @@ function GroupCard({
                               ))}
                             </div>
                           ))}
-                          <div className="combo__actions">
-                            <button
-                              type="button"
-                              className="button--quiet"
-                              data-testid="combo-edit"
-                              title="Edit this combo in the builder; Save puts it back here"
-                              onClick={() =>
-                                setBuilder((b) =>
-                                  builderFromNeed(
-                                    need,
-                                    { group: groupIndex, need: ni },
-                                    b.focus + 1,
-                                  ),
-                                )
-                              }
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              className="button--quiet"
-                              data-testid="combo-copy"
-                              title="Put this combo's effects in the builder, to add a variant"
-                              onClick={() =>
-                                setBuilder((b) => builderFromNeed(need, null, b.focus + 1))
-                              }
-                            >
-                              Copy to builder
-                            </button>
-                          </div>
+                          <NeedActions
+                            need={need}
+                            at={{ group: groupIndex, need: ni }}
+                            setBuilder={setBuilder}
+                          />
                         </div>
                       )}
                     </td>

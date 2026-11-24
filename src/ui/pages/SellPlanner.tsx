@@ -167,8 +167,14 @@ export function SellPlanner() {
         setBuilder={setPopupBuilder}
         index={index}
         onClose={() => setPopup(null)}
-        onSubmit={(draft) => {
-          updatePlan((c) => addNeeds(c, [withDefaultLevels(draft, index)]).config);
+        onSubmit={(drafts) => {
+          updatePlan(
+            (c) =>
+              addNeeds(
+                c,
+                drafts.map((d) => withDefaultLevels(d, index)),
+              ).config,
+          );
           setPopup(null);
         }}
       />

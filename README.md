@@ -70,6 +70,14 @@ Primary Save File:
   whether normal relics, Deep of Night relics or both count (deep relics also
   roll many normal effects). Each need can
   tolerate curses the default says are dealbreakers.
+- **Combo builder** (Needs & combos, and the popup from any results row):
+  _All of_ (effects every combo has), _any of_ slots (any option counts toward
+  the same copies) and _permutations of_ rows: one separate combo for each
+  effect in the row, and for every combination with other permutation rows
+  (Physical / Magic +4 × Frost +2 / +1 / +0 = 6 combos). Several levels of one
+  effect in a row make each combo count that level only. It previews how many
+  combos it will add, and sets copies, per color / in total and importance for
+  all of them. One effect alone adds a single-effect need.
 - **Stacking:** which levels stack in one build, from community data; change
   a family with a preset or a grid.
 - **Seed from builds:** add what builds use to the list once (merged, copies = the most any

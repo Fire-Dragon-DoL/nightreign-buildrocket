@@ -34,7 +34,7 @@ export const RELIC_KIND_LABELS: Record<RelicKind, string> = {
   any: 'Both',
 };
 
-interface NeedBase {
+export interface NeedBase {
   /** Copies wanted: per color with `perColor`, in total with `any`. */
   copies: number;
   colorScope: ColorScope;

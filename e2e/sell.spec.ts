@@ -192,7 +192,7 @@ test('builds, edits and reorders combos; copies a relic from the results', async
   await chip('Improved Incantations +2').dragTo(page.getByTestId('group-combo-any-add'));
   await chip('Fire Attack Power Up +4').dragTo(page.getByTestId('builder-any'));
   await expect(page.getByTestId('builder-any').getByTestId('builder-chip')).toHaveCount(2);
-  await expect(page.getByText('2 pairings, counted together')).toBeVisible();
+  await expect(page.getByTestId('builder-count')).toHaveText('1 combo (good roll)');
   // Enter on the empty field adds the combo, and the builder is ready for the next one.
   await all.press('Enter');
 
@@ -361,4 +361,36 @@ test('dragging a save and a plan together anywhere on the page loads both', asyn
   });
   await page.dispatchEvent('body', 'dragenter', { dataTransfer: one });
   await expect(page.getByTestId('window-drop')).toHaveCount(0);
+});
+
+test('the builder makes a combo per permutation, also from the results popup', async ({ page }) => {
+  await page.goto(SELL_URL);
+  await page.getByTestId('primary-input').setInputFiles(await save());
+
+  // From the results popup: Physical / Magic +4 with each Frost level = 6 combos, 3 per color.
+  await page.getByTestId('copy-to-builder').first().click();
+  const dialog = page.getByTestId('combo-dialog');
+  await dialog.getByTestId('builder-clear').click();
+  const column = (n: number) => dialog.getByTestId('group-combo-perm').nth(n);
+  await dialog.getByTestId('group-combo-perm-add').click();
+  for (const id of [6001401, 6001501]) await column(0).fill(`x #${id}`);
+  await dialog.getByTestId('group-combo-perm-add').click();
+  for (const id of [6260401, 6260400, 7260400]) await column(1).fill(`x #${id}`);
+  await dialog.getByTestId('builder-copies').fill('3');
+  await expect(dialog.getByTestId('builder-count')).toHaveText('6 combos (good rolls)');
+  await expect(dialog.getByTestId('builder-preview')).toContainText(
+    'Physical Attack Up +4 + Attack power up when facing frostbite-afflicted enemy +2 only',
+  );
+  await dialog.getByTestId('group-combo-add').click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByTestId('rnp-status')).toContainText('6 need(s)');
+
+  await page.getByTestId('menu-needs').click();
+  await page.getByTestId('tab-groups').click();
+  const rows = page.getByTestId('need-row');
+  await expect(rows).toHaveCount(6);
+  await expect(
+    rows.first().getByTestId('effect-copies').or(rows.first().locator('.copies')),
+  ).toHaveValue('3');
+  await expect(rows.nth(1).getByTestId('need-level').last()).toHaveValue('1=');
 });

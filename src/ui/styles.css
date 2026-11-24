@@ -1162,3 +1162,25 @@ tr.need-row--drop-below > td {
   color: var(--green);
   border-color: var(--green);
 }
+
+/* Permutation columns: a separate combo for each effect. */
+.combo-builder__row--perm {
+  border-left: 2px dashed var(--green);
+  padding-left: 0.5rem;
+}
+
+.combo-builder__settings {
+  font-size: 0.9rem;
+}
+
+.combo-builder__preview {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+}
+
+.combo-builder__preview ul {
+  margin: 0.2rem 0 0;
+  padding-left: 1.2rem;
+}

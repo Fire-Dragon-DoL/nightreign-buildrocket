@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { ComboNeed } from '../../core/sell/config.ts';
+import type { Need } from '../../core/sell/config.ts';
 import type { EffectIndex } from '../../core/sell/effects.ts';
 import type { Builder } from './builder.ts';
 import { ComboBuilder } from './ComboBuilder.tsx';
@@ -10,7 +10,7 @@ interface Props {
   setBuilder: (fn: (b: Builder) => Builder) => void;
   index: EffectIndex;
   /** Add the combo to the plan (the dialog then closes). */
-  onSubmit: (draft: ComboNeed) => void;
+  onSubmit: (drafts: Need[]) => void;
   onClose: () => void;
   testId?: string;
 }
