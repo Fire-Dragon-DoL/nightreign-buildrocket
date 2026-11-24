@@ -48,9 +48,25 @@ const effectNeed = (effect: number, extra: Partial<Need> = {}): Need =>
 const taken = (r: ReturnType<typeof pickFromSecondary>) => r.picks.reduce((n, p) => n + p.count, 0);
 
 describe('Secondary Pool Picks', () => {
+  it('only picks from copies the Relic Pool does not also have', () => {
+    const fire = relic(RED, [7001602]);
+    const r = pickFromSecondary(
+      [fire, fire],
+      [fire, fire, fire],
+      config([effectNeed(7001602, { copies: 5 })]),
+    );
+    expect(r).toMatchObject({ shared: 2, availableCount: 1 });
+    expect(r.picks[0]).toMatchObject({ count: 1, available: 1 });
+    expect(r.needs[0]).toMatchObject({ have: 2, after: 3, want: 5 });
+    // Nothing new on the other side: nothing to take, even when short.
+    expect(
+      pickFromSecondary([fire], [fire], config([effectNeed(7001602, { copies: 3 })])).picks,
+    ).toEqual([]);
+  });
+
   it('takes only the copies the Relic Pool lacks', () => {
     const m = relic(RED, [MAGIC_2]);
-    const r = pickFromSecondary([m], [m, m, m], config([effectNeed(MAGIC_2, { copies: 2 })]));
+    const r = pickFromSecondary([m], [m, m, m, m], config([effectNeed(MAGIC_2, { copies: 2 })]));
     expect(r.picks).toHaveLength(1);
     expect(r.picks[0]).toMatchObject({ count: 1, available: 3 });
     expect(r.picks[0]?.fills[0]).toMatchObject({ have: 1, after: 2, want: 2, backup: false });
@@ -107,10 +123,11 @@ describe('Secondary Pool Picks', () => {
   it('unsellable relics in the Relic Pool count, and a unique one it has is skipped', () => {
     const r = pickFromSecondary(
       [relic(UNSELLABLE_RED, [])],
-      [relic(UNSELLABLE_RED, [])],
+      [relic(UNSELLABLE_RED, []), relic(UNSELLABLE_RED, [MAGIC_1])],
       emptyConfig(),
     );
-    expect(r.skippedUnique).toBe(1);
+    // The identical one is shared; a different roll of a unique relic you have can't be added.
+    expect(r).toMatchObject({ shared: 1, skippedUnique: 1 });
   });
 
   it('lists upgrades over a counted copy: higher level, or milder curses', () => {

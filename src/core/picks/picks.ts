@@ -2,6 +2,10 @@
  * Secondary Pool Picks: which relics of a second pool (another character or
  * save) fill what your main Relic Pool lacks for a sell plan's needs.
  *
+ * The Secondary Pool is assumed to be a copy of the Relic Pool that drifted apart, so first the
+ * relics both have are set aside: each Relic Pool relic removes one identical Secondary copy.
+ * Only what is left (the available pool: relics really earned on the other side) is considered.
+ *
  * Counting is the Sell Planner's (same buckets, colors, levels, backups,
  * stacking and curse rules, see core/sell/planner.ts):
  * - A need is short when the Relic Pool's coverage is below its copies.
@@ -16,7 +20,7 @@
  *   (same heuristic as the Sell Planner), unless the Relic Pool has the same relic.
  * A unique relic (one the game won't sell) the Relic Pool already has is skipped.
  */
-import type { RelicSpec } from '../builds/builds.ts';
+import { type RelicSpec, specKey } from '../builds/builds.ts';
 import { rollRules } from '../catalog/catalog.ts';
 import {
   type ColorName,
@@ -59,7 +63,7 @@ export interface PickEntry {
   key: string;
   /** Copies to take on this line. */
   count: number;
-  /** Copies of this relic in the Secondary Pool. */
+  /** Copies of this relic in the available pool (Secondary minus shared copies). */
   available: number;
   fills: PickFill[];
   reason: string;
@@ -113,6 +117,10 @@ export interface PicksResult {
   needs: PickNeed[];
   /** Secondary relics skipped: unique relics the Relic Pool already has. */
   skippedUnique: number;
+  /** Secondary relics set aside because the Relic Pool has the same copy. */
+  shared: number;
+  /** Relics in the available pool (Secondary minus shared copies). */
+  availableCount: number;
   warnings: string[];
 }
 
@@ -178,7 +186,24 @@ export function pickFromSecondary(
   config: SellConfig,
   onProgress?: ProgressCallback,
 ): PicksResult {
-  const model = buildPoolModel([...main, ...secondary], config);
+  // The available pool: Secondary minus one copy per identical Relic Pool relic.
+  const inMain = new Map<string, number>();
+  for (const spec of main) {
+    const key = specKey(spec);
+    inMain.set(key, (inMain.get(key) ?? 0) + 1);
+  }
+  const pool: RelicSpec[] = [];
+  let shared = 0;
+  for (const spec of secondary) {
+    const key = specKey(spec);
+    const left = inMain.get(key) ?? 0;
+    if (left > 0) {
+      inMain.set(key, left - 1);
+      shared++;
+    } else pool.push(spec);
+  }
+
+  const model = buildPoolModel([...main, ...pool], config);
   const { units, buckets, index } = model;
   const rules = rollRules();
   const mainUnits = units.slice(0, main.length);
@@ -419,6 +444,8 @@ export function pickFromSecondary(
     godrolls: [...godrollLines.values()],
     needs,
     skippedUnique,
+    shared,
+    availableCount: pool.length,
     warnings: model.warnings,
   };
 }
