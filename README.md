@@ -32,7 +32,8 @@ page, always ready to be replaced, and every page uses them. Anywhere the app
 asks for a file, a save and a builds file exported by the app (`.jsl2`; older
 `.json` exports open too) are interchangeable. _Export .jsl2_ (next to the
 Primary Save File) saves the character's builds and every relic it owns, so a
-friend can send you a `.jsl2` instead of their save.
+friend can send you a `.jsl2` instead of their save. Drag a save (or `.jsl2`)
+and a plan (`.rnp`) together anywhere on the page to load both at once.
 
 **Relics Diff:** the builds come from the Primary Save File; open the save (or
 `.jsl2`) whose relics you will use as _Secondary Save File_ and pick its
