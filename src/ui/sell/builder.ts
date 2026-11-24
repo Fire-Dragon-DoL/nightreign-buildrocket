@@ -177,7 +177,10 @@ export function draftLabel(need: Need, index: EffectIndex): string {
   const name = (id: number) => {
     const exact =
       need.kind === 'effect' ? need.exactLevel === true : (need.exactLevels?.includes(id) ?? false);
-    return `${index.meta(id)?.name ?? id}${exact ? ' only' : ''}`;
+    const meta = index.meta(id);
+    if (!meta) return String(id);
+    // "Family +0 only": the base effect's name has no level in it.
+    return exact ? `${meta.family} +${meta.level} only` : meta.name;
   };
   if (need.kind === 'effect') return name(need.effect);
   return [

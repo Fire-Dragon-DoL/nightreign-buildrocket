@@ -1184,3 +1184,8 @@ tr.need-row--drop-below > td {
   margin: 0.2rem 0 0;
   padding-left: 1.2rem;
 }
+
+.combo-builder__dup {
+  text-decoration: line-through;
+  opacity: 0.6;
+}

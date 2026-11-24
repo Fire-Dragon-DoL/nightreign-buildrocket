@@ -385,6 +385,20 @@ test('the builder makes a combo per permutation, also from the results popup', a
   await expect(dialog).toBeHidden();
   await expect(page.getByTestId('rnp-status')).toContainText('6 need(s)');
 
+  // The same again from another popup: nothing new, the builder says so and adds nothing.
+  await page.getByTestId('copy-to-builder').first().click();
+  await dialog.getByTestId('builder-clear').click();
+  await dialog.getByTestId('group-combo-perm-add').click();
+  for (const id of [6001401, 6001501]) await column(0).fill(`x #${id}`);
+  await dialog.getByTestId('group-combo-perm-add').click();
+  // Frost +2 / +1 with Physical / Magic: all 4 are already in the plan.
+  for (const id of [6260401, 6260400]) await column(1).fill(`x #${id}`);
+  await dialog.getByTestId('builder-copies').fill('3');
+  await expect(dialog.getByTestId('group-combo-add')).toHaveText('Already in your plan');
+  await expect(dialog.getByTestId('group-combo-add')).toBeDisabled();
+  await expect(dialog.getByTestId('builder-duplicates')).toContainText('4 already in your plan');
+  await page.keyboard.press('Escape');
+
   await page.getByTestId('menu-needs').click();
   await page.getByTestId('tab-groups').click();
   const rows = page.getByTestId('need-row');

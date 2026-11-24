@@ -115,7 +115,7 @@ test('picks secondary pool relics for the open plan; plans open and save from th
   await expect(dialog.getByTestId('builder-chip')).toHaveCount(3);
   await dialog.getByTestId('group-combo-effect').press('Enter');
   await expect(dialog).toBeHidden();
-  await expect(page.getByTestId('picks-rnp-message')).toContainText('Added the combo to your plan');
+  await expect(page.getByTestId('picks-rnp-message')).toContainText('Added 1.');
   // Now wanted: it becomes a pick, and the plan is marked changed (also in the top bar).
   await expect(page.getByTestId('roll-row')).toHaveCount(0);
   await expect(page.getByTestId('pick-row')).toHaveCount(2);

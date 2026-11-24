@@ -126,6 +126,13 @@ export function GroupsTab({
           builder={builder}
           setBuilder={setBuilder}
           index={index}
+          existing={config.groups.flatMap((g, gi) =>
+            g.name === DEFAULT_GROUP
+              ? g.needs.filter(
+                  (_, ni) => !(builder.editing?.group === gi && builder.editing.need === ni),
+                )
+              : [],
+          )}
           onSubmit={(drafts) =>
             update((c) => {
               const at = builder.editing;
@@ -144,6 +151,7 @@ export function GroupsTab({
               return addNeeds(
                 next,
                 rest.map((d) => withDefaultLevels(d, index)),
+                index,
               ).config;
             })
           }
@@ -313,7 +321,7 @@ function GroupCard({
     );
   // New needs go to the one list (merged with an identical need if there is one).
   const addNeed = (need: Need) =>
-    update((c) => addNeeds(c, [withDefaultLevels(need, index)]).config);
+    update((c) => addNeeds(c, [withDefaultLevels(need, index)], index).config);
 
   return (
     <section className="group-card" data-testid="group-card">

@@ -73,7 +73,7 @@ describe('combo builder', () => {
     const drafts = builderDrafts(b, index) as ComboNeed[];
     expect(drafts).toHaveLength(6);
     expect(drafts.map((d) => draftLabel(d, index))[0]).toBe(
-      "Attack power up when facing poison-afflicted enemy only + Improved Giants' Flame Incantations + any of (Improved Affinity Attack Power +2 / Improved Incantations +2 / Fire Attack Power Up +4)",
+      "Attack power up when facing poison-afflicted enemy +0 only + Improved Giants' Flame Incantations + any of (Improved Affinity Attack Power +2 / Improved Incantations +2 / Fire Attack Power Up +4)",
     );
     expect(drafts[2]).toMatchObject({
       effects: [POISON_1, GIANT],

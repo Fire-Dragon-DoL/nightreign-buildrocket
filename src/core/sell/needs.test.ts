@@ -71,6 +71,33 @@ describe('merging needs', () => {
     expect(mergeNeeds([base], others).needs).toHaveLength(4);
   });
 
+  it('the same need written differently is still the same need', () => {
+    const index = buildEffectIndex();
+    const MAGIC_2 = 7001502;
+    const level = index.meta(MAGIC_2)?.level ?? 0;
+    // Own level set explicitly vs left unset; every color ticked vs none.
+    expect(needKey(effect(MAGIC_2, { minLevel: level, colors: [] }), index)).toBe(
+      needKey(effect(MAGIC_2, { colors: ['Red', 'Blue', 'Yellow', 'Green'] }), index),
+    );
+    // A lower level or "only" is a different need.
+    expect(needKey(effect(MAGIC_2, { minLevel: 0 }), index)).not.toBe(
+      needKey(effect(MAGIC_2), index),
+    );
+    expect(needKey(effect(MAGIC_2, { exactLevel: true }), index)).not.toBe(
+      needKey(effect(MAGIC_2), index),
+    );
+  });
+
+  it('reports duplicates, also repeated inside what is added', () => {
+    const a = effect(7000090, { copies: 2 });
+    const r = mergeNeeds(
+      [a],
+      [a, effect(7000091), effect(7000091), effect(7000090, { copies: 3 })],
+    );
+    expect(r.outcomes).toEqual(['duplicate', 'added', 'duplicate', 'updated']);
+    expect([r.added, r.updated, r.duplicates]).toEqual([1, 1, 2]);
+  });
+
   it('combos match whatever the order of their effects', () => {
     const combo = (effects: number[]): Need => ({
       kind: 'combo',

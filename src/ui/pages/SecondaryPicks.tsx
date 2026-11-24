@@ -20,7 +20,7 @@ import { fileSafe } from '../fileSafe.ts';
 import { needCount, updatePlan, usePlan } from '../plan/planStore.ts';
 import { type Builder, builderFromRelic } from '../sell/builder.ts';
 import { ComboDialog } from '../sell/ComboDialog.tsx';
-import { addNeeds } from '../sell/configEdit.ts';
+import { addedMessage, addNeeds, listNeeds } from '../sell/configEdit.ts';
 import { RelicRef } from '../sell/WhyCell.tsx';
 import { useLoadedFile, usePrimarySource } from '../useLoadedFile.ts';
 
@@ -83,16 +83,17 @@ export function SecondaryPicks() {
     [index],
   );
   const addCombo = (drafts: Need[]) => {
-    updatePlan(
-      (c) =>
-        addNeeds(
-          c,
-          drafts.map((d) => withDefaultLevels(d, index)),
-        ).config,
-    );
-    setPlanMessage(
-      `Added ${drafts.length === 1 ? 'the combo' : `${drafts.length} combos`} to your plan (save it at the top to keep it).`,
-    );
+    let result = { added: 0, updated: 0, duplicates: 0 };
+    updatePlan((c) => {
+      const r = addNeeds(
+        c,
+        drafts.map((d) => withDefaultLevels(d, index)),
+        index,
+      );
+      result = r;
+      return r.config;
+    });
+    setPlanMessage(`${addedMessage(result)} Save the plan at the top to keep it.`);
     setPopup(null);
   };
 
@@ -196,6 +197,7 @@ export function SecondaryPicks() {
       {index && (
         <ComboDialog
           builder={popup}
+          existing={listNeeds(config)}
           setBuilder={setPopupBuilder}
           index={index}
           onClose={() => setPopup(null)}

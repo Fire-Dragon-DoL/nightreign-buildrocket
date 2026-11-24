@@ -11,6 +11,8 @@ interface Props {
   index: EffectIndex;
   /** Add the combo to the plan (the dialog then closes). */
   onSubmit: (drafts: Need[]) => void;
+  /** Needs already in the plan: the same ones aren't added again. */
+  existing: Need[];
   onClose: () => void;
   testId?: string;
 }
@@ -21,6 +23,7 @@ export function ComboDialog({
   setBuilder,
   index,
   onSubmit,
+  existing,
   onClose,
   testId = 'combo-dialog',
 }: Props) {
@@ -74,6 +77,7 @@ export function ComboDialog({
             index={index}
             scroll={false}
             onSubmit={onSubmit}
+            existing={existing}
           />
           <p className="muted">
             It's added to Needs &amp; combos as Must keep, 1 per color; change that there.

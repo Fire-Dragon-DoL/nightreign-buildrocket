@@ -140,19 +140,32 @@ export function setStacks(
   return { ...rules, noStack, stack };
 }
 
-/** Add needs to the plan's one list, merging with identical ones already there. */
+/**
+ * Add needs to the plan's one list. A need already there (same effects, levels, colors and relic
+ * kind) isn't added again: it keeps the larger copy count and the higher importance.
+ */
 export function addNeeds(
   config: SellConfig,
   needs: Need[],
-): { config: SellConfig; added: number; updated: number } {
+  index?: EffectIndex,
+): { config: SellConfig; added: number; updated: number; duplicates: number } {
   const [withGroup, gi] = ensureGroup(config, DEFAULT_GROUP);
   const group = withGroup.groups[gi] as NeedGroup;
-  const merged = mergeNeeds(group.needs, needs);
+  const merged = mergeNeeds(group.needs, needs, index);
   return {
     config: updateGroup(withGroup, gi, (g) => ({ ...g, needs: merged.needs })),
     added: merged.added,
     updated: merged.updated,
+    duplicates: merged.duplicates,
   };
+}
+
+/** "Added 4. 2 already in your plan." for a toast after adding. */
+export function addedMessage(r: { added: number; updated: number; duplicates: number }): string {
+  const parts = [`Added ${r.added}.`];
+  if (r.updated) parts.push(`${r.updated} already in your plan got more copies or importance.`);
+  if (r.duplicates) parts.push(`${r.duplicates} already in your plan, skipped.`);
+  return parts.join(' ');
 }
 
 /** Move every need into the one list (older plans with several groups). */
@@ -180,3 +193,7 @@ export function moveNeed(config: SellConfig, group: number, from: number, to: nu
     return { ...g, needs };
   });
 }
+
+/** The needs new ones are added to (the plan's one list). */
+export const listNeeds = (config: SellConfig): Need[] =>
+  config.groups.find((g) => g.name === DEFAULT_GROUP)?.needs ?? [];

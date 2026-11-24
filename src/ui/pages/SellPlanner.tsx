@@ -15,7 +15,7 @@ import { fileSafe } from '../fileSafe.ts';
 import { needCount, updatePlan, usePlan } from '../plan/planStore.ts';
 import { type Builder, builderFromRelic } from '../sell/builder.ts';
 import { ComboDialog } from '../sell/ComboDialog.tsx';
-import { addNeeds } from '../sell/configEdit.ts';
+import { addNeeds, listNeeds } from '../sell/configEdit.ts';
 import { ResultsView } from '../sell/ResultsView.tsx';
 import { usePrimarySource } from '../useLoadedFile.ts';
 
@@ -164,6 +164,7 @@ export function SellPlanner() {
       </section>
       <ComboDialog
         builder={popup}
+        existing={listNeeds(config)}
         setBuilder={setPopupBuilder}
         index={index}
         onClose={() => setPopup(null)}
@@ -173,6 +174,7 @@ export function SellPlanner() {
               addNeeds(
                 c,
                 drafts.map((d) => withDefaultLevels(d, index)),
+                index,
               ).config,
           );
           setPopup(null);

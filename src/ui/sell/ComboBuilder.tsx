@@ -1,6 +1,7 @@
 import { type DragEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { comboRoll, type Need } from '../../core/sell/config.ts';
 import type { EffectIndex } from '../../core/sell/effects.ts';
+import { type MergeOutcome, mergeNeeds, withDefaultLevels } from '../../core/sell/needs.ts';
 import {
   addEffect,
   type Builder,
@@ -11,6 +12,7 @@ import {
   type Place,
   removeEffect,
 } from './builder.ts';
+import { addedMessage } from './configEdit.ts';
 import { CopiesInput, EffectPicker, ImportanceSelect, ScopeSelect } from './controls.tsx';
 
 const DRAG_TYPE = 'application/x-buildrocket-effect';
@@ -39,6 +41,8 @@ interface Props {
   onSubmit: (drafts: Need[]) => void;
   /** Scroll into view when filled from elsewhere (off in a popup). */
   scroll?: boolean;
+  /** Needs already in the plan (not the one being edited): the same ones aren't added again. */
+  existing: Need[];
 }
 
 /**
@@ -46,12 +50,35 @@ interface Props {
  * copies), and permutation columns (a separate need per combination of picks). Effects can be
  * dragged between rows. Enter on an empty field adds them.
  */
-export function ComboBuilder({ builder, setBuilder, index, onSubmit, scroll = true }: Props) {
+export function ComboBuilder({
+  builder,
+  setBuilder,
+  index,
+  onSubmit,
+  scroll = true,
+  existing,
+}: Props) {
   const allInput = useRef<HTMLInputElement>(null);
   const section = useRef<HTMLDivElement>(null);
   const [over, setOver] = useState<Place | null>(null);
-  const drafts = useMemo(() => builderDrafts(builder, index), [builder, index]);
+  // Levels as they will be saved (stacking effects accept lower ones), so duplicates are found.
+  const drafts = useMemo(
+    () => builderDrafts(builder, index).map((d) => withDefaultLevels(d, index)),
+    [builder, index],
+  );
   const editing = builder.editing !== null;
+  // Each draft against the plan and the drafts before it: new, more copies / importance, or a
+  // duplicate that won't be added. When editing, the first draft replaces the edited need.
+  const outcomes = useMemo<MergeOutcome[]>(() => {
+    const [first, ...rest] = drafts;
+    if (editing && first) {
+      return ['added', ...mergeNeeds([...existing, first], rest, index).outcomes];
+    }
+    return mergeNeeds(existing, drafts, index).outcomes;
+  }, [drafts, existing, editing, index]);
+  const toAdd = drafts.filter((_, i) => outcomes[i] !== 'duplicate');
+  const duplicates = drafts.length - toAdd.length;
+  const [message, setMessage] = useState<string | null>(null);
   const empty = builder.all.length + builder.anyOf.length + builder.perms.length === 0;
 
   // Filled from another tab or a combo's Edit button: show it and get ready to type.
@@ -62,8 +89,14 @@ export function ComboBuilder({ builder, setBuilder, index, onSubmit, scroll = tr
   }, [builder.focus, scroll]);
 
   const submit = () => {
-    if (drafts.length === 0) return;
-    onSubmit(drafts);
+    if (toAdd.length === 0) return;
+    onSubmit(toAdd);
+    const updated = outcomes.filter((o) => o === 'updated').length;
+    setMessage(
+      editing
+        ? `Saved${toAdd.length > 1 ? `, added ${toAdd.length - 1 - updated}` : ''}.${duplicates ? ` ${duplicates} already in your plan, skipped.` : ''}`
+        : addedMessage({ added: toAdd.length - updated, updated, duplicates }),
+    );
     // Keep the settings for the next ones.
     setBuilder((b) => emptyBuilder(b.focus, b.settings));
     allInput.current?.focus({ preventScroll: true });
@@ -122,15 +155,20 @@ export function ComboBuilder({ builder, setBuilder, index, onSubmit, scroll = tr
     setBuilder((b) => ({ ...b, settings: { ...b.settings, ...patch } }));
 
   const count = drafts.length;
+  const adding = toAdd.length;
   const action = editing
-    ? count > 1
-      ? `Save + add ${count - 1}`
+    ? adding > 1
+      ? `Save + add ${adding - 1}`
       : 'Save'
-    : count === 1
-      ? drafts[0]?.kind === 'effect'
-        ? 'Add effect'
+    : adding === 0
+      ? count > 0
+        ? 'Already in your plan'
         : 'Add combo'
-      : `Add ${count} combos`;
+      : adding === 1
+        ? toAdd[0]?.kind === 'effect'
+          ? 'Add effect'
+          : 'Add combo'
+        : `Add ${adding} combos`;
 
   return (
     <div className="field combo-builder" ref={section} data-testid="combo-builder">
@@ -256,10 +294,32 @@ export function ComboBuilder({ builder, setBuilder, index, onSubmit, scroll = tr
       {count > 0 && (
         <div className="combo-builder__preview" data-testid="builder-preview">
           <b data-testid="builder-count">{previewTitle(drafts)}</b>
+          {duplicates > 0 && (
+            <span className="warning" data-testid="builder-duplicates">
+              {' '}
+              · {duplicates} already in your plan (or repeated here):{' '}
+              {duplicates === 1 ? "it won't" : "they won't"} be added
+            </span>
+          )}
           <ul>
-            {drafts.slice(0, PREVIEW).map((d) => {
+            {drafts.slice(0, PREVIEW).map((d, i) => {
               const label = draftLabel(d, index);
-              return <li key={label}>{label}</li>;
+              const outcome = outcomes[i];
+              return (
+                <li
+                  // biome-ignore lint/suspicious/noArrayIndexKey: the same label can repeat
+                  key={`${label}#${i}`}
+                  className={outcome === 'duplicate' ? 'combo-builder__dup' : undefined}
+                >
+                  {label}
+                  {outcome === 'duplicate' && (
+                    <span className="muted"> — already in your plan</span>
+                  )}
+                  {outcome === 'updated' && (
+                    <span className="muted"> — in your plan: more copies or importance</span>
+                  )}
+                </li>
+              );
             })}
             {count > PREVIEW && <li className="muted">… and {count - PREVIEW} more</li>}
           </ul>
@@ -276,10 +336,20 @@ export function ComboBuilder({ builder, setBuilder, index, onSubmit, scroll = tr
         >
           {editing ? 'Cancel edit' : 'Clear builder'}
         </button>
-        <button type="button" disabled={count === 0} data-testid="group-combo-add" onClick={submit}>
+        <button
+          type="button"
+          disabled={adding === 0}
+          data-testid="group-combo-add"
+          onClick={submit}
+        >
           {action}
         </button>
       </div>
+      {message && (
+        <span className="message" data-testid="builder-message">
+          {message}
+        </span>
+      )}
     </div>
   );
 }

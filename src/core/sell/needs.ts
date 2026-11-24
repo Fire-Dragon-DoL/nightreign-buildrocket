@@ -2,7 +2,7 @@
  * Helpers on needs: default levels, identity, and merging lists of needs
  * (one plan is one list of needs; groups only survive for older files).
  */
-import { IMPORTANCES, type Need, needEffectIds } from './config.ts';
+import { IMPORTANCES, type Need, needEffectIds, RELIC_COLORS } from './config.ts';
 import type { EffectIndex } from './effects.ts';
 
 /**
@@ -37,26 +37,29 @@ export function withDefaultLevels(need: Need, index: EffectIndex): Need {
   return Object.keys(minLevels).length ? { ...need, minLevels } : need;
 }
 
-/** What a need asks for, without how many or how much it matters: equal keys = the same need. */
-export function needKey(need: Need): string {
-  const colors = need.colorScope === 'perColor' ? [...(need.colors ?? [])].sort().join('/') : '';
+/**
+ * What a need asks for, without how many or how much it matters: equal keys = the same need.
+ * Written differently but meaning the same also gives equal keys: members in any order, a level
+ * set to the effect's own level or left unset (with `index`), every color ticked or none.
+ */
+export function needKey(need: Need, index?: EffectIndex): string {
+  const picked = need.colorScope === 'perColor' ? [...new Set(need.colors ?? [])].sort() : [];
+  const colors = picked.length === RELIC_COLORS.length ? '' : picked.join('/');
+  const member = (id: number, min: number | undefined, exact: boolean) =>
+    `${id}@${min ?? index?.meta(id)?.level ?? ''}${exact ? '!' : ''}`;
   const what =
     need.kind === 'effect'
-      ? `E${need.effect}@${need.minLevel ?? ''}${need.exactLevel ? '!' : ''}`
-      : `C${[...need.effects]
+      ? `E${member(need.effect, need.minLevel, need.exactLevel === true)}`
+      : `C${[...new Set(need.effects)]
           .sort((a, b) => a - b)
-          .map(
-            (id) =>
-              `${id}@${need.minLevels?.[id] ?? ''}${need.exactLevels?.includes(id) ? '!' : ''}`,
-          )
+          .map((id) => member(id, need.minLevels?.[id], need.exactLevels?.includes(id) ?? false))
           .join(',')}${(need.anyOf ?? [])
           .map(
             (slot) =>
-              `|any:${[...slot]
+              `|any:${[...new Set(slot)]
                 .sort((a, b) => a - b)
-                .map(
-                  (id) =>
-                    `${id}@${need.minLevels?.[id] ?? ''}${need.exactLevels?.includes(id) ? '!' : ''}`,
+                .map((id) =>
+                  member(id, need.minLevels?.[id], need.exactLevels?.includes(id) ?? false),
                 )
                 .join(',')}`,
           )
@@ -64,6 +67,9 @@ export function needKey(need: Need): string {
           .join('')}`;
   return `${what}|${need.colorScope}|${colors}|${need.relics ?? 'auto'}`;
 }
+
+/** What adding a need to a list does: a new need, more copies / importance for one, or nothing. */
+export type MergeOutcome = 'added' | 'updated' | 'duplicate';
 
 const rank = (n: Need) => IMPORTANCES.indexOf(n.importance);
 
@@ -74,18 +80,23 @@ const rank = (n: Need) => IMPORTANCES.indexOf(n.importance);
 export function mergeNeeds(
   existing: Need[],
   incoming: Need[],
-): { needs: Need[]; added: number; updated: number } {
+  /** Lets "level left unset" and "set to its own level" count as the same. */
+  index?: EffectIndex,
+): { needs: Need[]; added: number; updated: number; duplicates: number; outcomes: MergeOutcome[] } {
   const needs = existing.slice();
-  const at = new Map(needs.map((n, i) => [needKey(n), i]));
+  const at = new Map(needs.map((n, i) => [needKey(n, index), i]));
   let added = 0;
   let updated = 0;
+  let duplicates = 0;
+  const outcomes: MergeOutcome[] = [];
   for (const n of incoming) {
-    const key = needKey(n);
+    const key = needKey(n, index);
     const i = at.get(key);
     if (i === undefined) {
       at.set(key, needs.length);
       needs.push(n);
       added++;
+      outcomes.push('added');
       continue;
     }
     const old = needs[i] as Need;
@@ -97,7 +108,11 @@ export function mergeNeeds(
     if (merged.copies !== old.copies || merged.importance !== old.importance) {
       needs[i] = merged;
       updated++;
+      outcomes.push('updated');
+    } else {
+      duplicates++;
+      outcomes.push('duplicate');
     }
   }
-  return { needs, added, updated };
+  return { needs, added, updated, duplicates, outcomes };
 }
