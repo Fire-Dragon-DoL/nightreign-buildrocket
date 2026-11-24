@@ -64,6 +64,17 @@ describe('Secondary Pool Picks', () => {
     ).toEqual([]);
   });
 
+  it('sets aside relics that look the same in game, whatever their item id or effect order', () => {
+    // Deep Polished Luminous Scene: several item ids, same name, color and size.
+    const left = relic(2000201, [6611302, 6001601], [null, ALL_RES_DOWN]);
+    const right = relic(2010211, [6001601, 6611302], [ALL_RES_DOWN, null]);
+    const r = pickFromSecondary([left], [right], config([effectNeed(6611302, { copies: 2 })]));
+    expect(r).toMatchObject({ shared: 1, availableCount: 0, picks: [] });
+    // A different curse is a different relic.
+    const other = relic(2010211, [6001601, 6611302], [HP_LOSS, null]);
+    expect(pickFromSecondary([left], [other], emptyConfig())).toMatchObject({ shared: 0 });
+  });
+
   it('takes only the copies the Relic Pool lacks', () => {
     const m = relic(RED, [MAGIC_2]);
     const r = pickFromSecondary([m], [m, m, m, m], config([effectNeed(MAGIC_2, { copies: 2 })]));

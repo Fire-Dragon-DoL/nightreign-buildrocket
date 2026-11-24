@@ -3,7 +3,9 @@
  * save) fill what your main Relic Pool lacks for a sell plan's needs.
  *
  * The Secondary Pool is assumed to be a copy of the Relic Pool that drifted apart, so first the
- * relics both have are set aside: each Relic Pool relic removes one identical Secondary copy.
+ * relics both have are set aside: each Relic Pool relic removes one Secondary copy that looks the
+ * same in game (`lookKey`: name, color, kind, size and effects with their curses, in any order and
+ * by canonical id), even when the item ids differ (many ids share one name, color and size).
  * Only what is left (the available pool: relics really earned on the other side) is considered.
  *
  * Counting is the Sell Planner's (same buckets, colors, levels, backups,
@@ -20,8 +22,8 @@
  *   (same heuristic as the Sell Planner), unless the Relic Pool has the same relic.
  * A unique relic (one the game won't sell) the Relic Pool already has is skipped.
  */
-import { type RelicSpec, specKey } from '../builds/builds.ts';
-import { rollRules } from '../catalog/catalog.ts';
+import type { RelicSpec } from '../builds/builds.ts';
+import { catalog, rollRules } from '../catalog/catalog.ts';
 import {
   type ColorName,
   cursePenalty,
@@ -42,6 +44,23 @@ import {
 } from '../sell/planner.ts';
 
 const EPS = 1e-9;
+
+/**
+ * What the game shows of a relic: name, color, kind and size, and each effect with its curse
+ * (aliases as their canonical effect, in any order). Relics with the same key look identical.
+ */
+export function lookKey(spec: RelicSpec): string {
+  const info = catalog().relic(spec.itemId);
+  const canon = (id: number | null) => (id === null ? '-' : String(catalog().canonicalEffect(id)));
+  const pairs = spec.effects
+    .map((e, i) => `${canon(e)}/${canon(spec.curses[i] ?? null)}`)
+    .filter((p) => p !== '-/-')
+    .sort();
+  const head = info
+    ? `${info.name}|${info.color}|${info.deep ? 'D' : 'N'}|${rollRules().slotCount(spec.itemId)}`
+    : `#${spec.itemId}`;
+  return `${head}|${pairs.join(',')}`;
+}
 
 /** A need a picked relic helps fill. */
 export interface PickFill {
@@ -189,13 +208,13 @@ export function pickFromSecondary(
   // The available pool: Secondary minus one copy per identical Relic Pool relic.
   const inMain = new Map<string, number>();
   for (const spec of main) {
-    const key = specKey(spec);
+    const key = lookKey(spec);
     inMain.set(key, (inMain.get(key) ?? 0) + 1);
   }
   const pool: RelicSpec[] = [];
   let shared = 0;
   for (const spec of secondary) {
-    const key = specKey(spec);
+    const key = lookKey(spec);
     const left = inMain.get(key) ?? 0;
     if (left > 0) {
       inMain.set(key, left - 1);
@@ -207,7 +226,7 @@ export function pickFromSecondary(
   const { units, buckets, index } = model;
   const rules = rollRules();
   const mainUnits = units.slice(0, main.length);
-  const mainKeys = new Set(mainUnits.map((u) => u.key));
+  const mainLooks = new Set(mainUnits.map((u) => lookKey(u.spec)));
   const mainItems = new Set(mainUnits.map((u) => u.spec.itemId));
 
   const available = new Map<string, number>();
@@ -410,7 +429,7 @@ export function pickFromSecondary(
   // Possible godrolls the plan doesn't mention.
   const godrollLines = new Map<string, GodrollEntry>();
   for (const u of sec) {
-    if (pickedSet.has(u) || u.contributions.length > 0 || mainKeys.has(u.key)) continue;
+    if (pickedSet.has(u) || u.contributions.length > 0 || mainLooks.has(lookKey(u.spec))) continue;
     if (!looksLikeGodroll(u.spec, index, config, model.ignoredFamilies)) continue;
     const line = godrollLines.get(u.key);
     if (line) line.count++;
