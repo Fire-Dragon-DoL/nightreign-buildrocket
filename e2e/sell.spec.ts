@@ -189,8 +189,10 @@ test('builds, edits and reorders combos; copies a relic from the results', async
   const all = page.getByTestId('group-combo-effect');
   for (const id of [7044600, 6611302, 6001601]) await all.fill(`x #${id}`);
   const chip = (name: string) => page.getByTestId('builder-chip').filter({ hasText: name });
-  await chip('Improved Incantations +2').dragTo(page.getByTestId('group-combo-any-add'));
-  await chip('Fire Attack Power Up +4').dragTo(page.getByTestId('builder-any'));
+  // Grab chips by their name (left edge), not the level menu in the middle.
+  const byName = { sourcePosition: { x: 8, y: 8 } };
+  await chip('Improved Incantations +2').dragTo(page.getByTestId('group-combo-any-add'), byName);
+  await chip('Fire Attack Power Up +4').dragTo(page.getByTestId('builder-any'), byName);
   await expect(page.getByTestId('builder-any').getByTestId('builder-chip')).toHaveCount(2);
   await expect(page.getByTestId('builder-count')).toHaveText('1 combo (good roll)');
   // Enter on the empty field adds the combo, and the builder is ready for the next one.
@@ -377,9 +379,13 @@ test('the builder makes a combo per permutation, also from the results popup', a
   await dialog.getByTestId('group-combo-perm-add').click();
   for (const id of [6260401, 6260400, 7260400]) await column(1).fill(`x #${id}`);
   await dialog.getByTestId('builder-copies').fill('3');
+  // Physical: +3 or higher in every combo (default: +2), chosen once on its chip.
+  const phys = dialog.getByTestId('builder-chip').filter({ hasText: 'Physical Attack Up +4' });
+  await expect(phys.getByTestId('need-level')).toHaveValue('2');
+  await phys.getByTestId('need-level').selectOption('3');
   await expect(dialog.getByTestId('builder-count')).toHaveText('6 combos (good rolls)');
   await expect(dialog.getByTestId('builder-preview')).toContainText(
-    'Physical Attack Up +4 + Attack power up when facing frostbite-afflicted enemy +2 only',
+    'Physical Attack Up +3 or higher + Attack power up when facing frostbite-afflicted enemy +2 only',
   );
   await dialog.getByTestId('group-combo-add').click();
   await expect(dialog).toBeHidden();
@@ -391,9 +397,10 @@ test('the builder makes a combo per permutation, also from the results popup', a
   await dialog.getByTestId('group-combo-perm-add').click();
   for (const id of [6001401, 6001501]) await column(0).fill(`x #${id}`);
   await dialog.getByTestId('group-combo-perm-add').click();
-  // Frost +2 / +1 with Physical / Magic: all 4 are already in the plan.
+  // Frost +2 / +1 with Physical (+3 or higher again) / Magic: all 4 are already in the plan.
   for (const id of [6260401, 6260400]) await column(1).fill(`x #${id}`);
   await dialog.getByTestId('builder-copies').fill('3');
+  await phys.getByTestId('need-level').selectOption('3');
   await expect(dialog.getByTestId('group-combo-add')).toHaveText('Already in your plan');
   await expect(dialog.getByTestId('group-combo-add')).toBeDisabled();
   await expect(dialog.getByTestId('builder-duplicates')).toContainText('4 already in your plan');
@@ -407,4 +414,5 @@ test('the builder makes a combo per permutation, also from the results popup', a
     rows.first().getByTestId('effect-copies').or(rows.first().locator('.copies')),
   ).toHaveValue('3');
   await expect(rows.nth(1).getByTestId('need-level').last()).toHaveValue('1=');
+  await expect(rows.nth(1).getByTestId('need-level').first()).toHaveValue('3');
 });

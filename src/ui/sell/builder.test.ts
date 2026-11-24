@@ -7,10 +7,12 @@ import {
   builderDrafts,
   builderFromNeed,
   builderFromRelic,
+  builderLevel,
   draftLabel,
   emptyBuilder,
   followEdit,
   moveEffect,
+  setBuilderLevel,
 } from './builder.ts';
 import { moveNeed } from './configEdit.ts';
 
@@ -108,6 +110,50 @@ describe('combo builder', () => {
     expect(drafts.map((d) => d.exactLevels)).toEqual(
       [FROST_2, FROST_1, FROST_0, FROST_2, FROST_1, FROST_0].map((id) => [id]),
     );
+  });
+
+  it('a level chosen on an effect applies to every combo, over the defaults', () => {
+    let b = {
+      ...emptyBuilder(),
+      perms: [
+        [PHYS_4, MAGIC_4],
+        [FROST_2, FROST_1],
+      ],
+    };
+    // Defaults: Physical stacks with itself (down to +2, the lowest deep relics roll), Frost
+    // levels count only themselves.
+    expect(builderLevel(b, PHYS_4, index)).toEqual({ min: 2, exact: false });
+    expect(builderLevel(b, FROST_1, index)).toEqual({ min: 1, exact: true });
+    b = setBuilderLevel(b, PHYS_4, { min: 3, exact: false });
+    b = setBuilderLevel(b, FROST_2, { min: 1, exact: false });
+    const drafts = builderDrafts(b, index) as ComboNeed[];
+    expect(drafts.map((d) => [d.minLevels, d.exactLevels])).toEqual([
+      [{ [PHYS_4]: 3, [FROST_2]: 1 }, undefined],
+      [{ [PHYS_4]: 3, [FROST_1]: 1 }, [FROST_1]],
+      [{ [FROST_2]: 1 }, undefined],
+      [{ [FROST_1]: 1 }, [FROST_1]],
+    ]);
+  });
+
+  it('editing a need loads its levels into the builder', () => {
+    const need: ComboNeed = {
+      kind: 'combo',
+      effects: [PHYS_4, FROST_1],
+      minLevels: { [PHYS_4]: 2, [FROST_1]: 1 },
+      exactLevels: [FROST_1],
+      copies: 1,
+      colorScope: 'perColor',
+      importance: 'mustKeep',
+    };
+    const b = builderFromNeed(need, null, 1);
+    expect(b.levels).toEqual({
+      [PHYS_4]: { min: 2, exact: false },
+      [FROST_1]: { min: 1, exact: true },
+    });
+    expect(builderDrafts(b, index)[0]).toMatchObject({
+      minLevels: { [PHYS_4]: 2, [FROST_1]: 1 },
+      exactLevels: [FROST_1],
+    });
   });
 
   it('editing keeps colors and curse tolerance, takes the builder settings and levels', () => {

@@ -6,18 +6,50 @@ import {
   addEffect,
   type Builder,
   builderDrafts,
+  builderLevel,
   draftLabel,
   emptyBuilder,
   moveEffect,
   type Place,
   removeEffect,
+  setBuilderLevel,
 } from './builder.ts';
 import { addedMessage } from './configEdit.ts';
-import { CopiesInput, EffectPicker, ImportanceSelect, ScopeSelect } from './controls.tsx';
+import {
+  CopiesInput,
+  EffectPicker,
+  ImportanceSelect,
+  LevelSelect,
+  ScopeSelect,
+} from './controls.tsx';
 
 const DRAG_TYPE = 'application/x-buildrocket-effect';
 
 const ROLL = { godroll: 'godroll', goodRoll: 'good roll' } as const;
+
+/** The level choice on a chip: applies to every combo the builder makes with this effect. */
+function ChipLevel({
+  builder,
+  setBuilder,
+  index,
+  id,
+}: {
+  builder: Builder;
+  setBuilder: (fn: (b: Builder) => Builder) => void;
+  index: EffectIndex;
+  id: number;
+}) {
+  const level = builderLevel(builder, id, index);
+  return (
+    <LevelSelect
+      index={index}
+      id={id}
+      value={level.min}
+      exact={level.exact}
+      onChange={(min, exact) => setBuilder((b) => setBuilderLevel(b, id, { min, exact }))}
+    />
+  );
+}
 
 /** "1 combo (good roll)", "6 combos (good rolls)", "1 single effect"… */
 function previewTitle(drafts: Need[]): string {
@@ -136,6 +168,7 @@ export function ComboBuilder({
       onDragEnd={() => setOver(null)}
     >
       {index.meta(id)?.name ?? id}
+      <ChipLevel builder={builder} setBuilder={setBuilder} index={index} id={id} />
       <button
         type="button"
         className="chip__remove"

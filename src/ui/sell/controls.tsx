@@ -232,3 +232,48 @@ export function CurseTolerance({
     </details>
   );
 }
+
+/**
+ * Which levels count: "+N or higher" (lower ones are weak backups), or "+N only" for effects that
+ * don't stack with themselves, so two relics can carry different levels (+0 on one, +1 on another).
+ */
+export function LevelSelect({
+  index,
+  id,
+  value,
+  exact,
+  onChange,
+}: {
+  index: EffectIndex;
+  id: number;
+  value: number | undefined;
+  exact: boolean;
+  onChange: (level: number, exact: boolean) => void;
+}) {
+  const meta = index.meta(id);
+  if (!meta) return null;
+  const levels = [...new Set(index.family(meta.family).map((m) => m.level))].sort((a, b) => a - b);
+  if (levels.length < 2) return null;
+  const max = Math.max(...levels);
+  const current = value ?? meta.level;
+  // "Only" also drops the weak backups lower levels give.
+  return (
+    <select
+      className="level-select"
+      value={`${current}${exact ? '=' : ''}`}
+      data-testid="need-level"
+      title="Or higher: the highest you own counts first. Only: just that level (use it to keep different levels of an effect that doesn't stack with itself)"
+      onChange={(e) => onChange(Number.parseInt(e.target.value, 10), e.target.value.endsWith('='))}
+    >
+      {levels.map((l) => (
+        <optgroup key={l} label={`+${l}`}>
+          <option value={l}>
+            +{l}
+            {l < max ? ' or higher' : ''}
+          </option>
+          <option value={`${l}=`}>+{l} only</option>
+        </optgroup>
+      ))}
+    </select>
+  );
+}

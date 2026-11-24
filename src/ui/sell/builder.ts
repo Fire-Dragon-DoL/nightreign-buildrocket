@@ -22,6 +22,7 @@ import type {
   NeedBase,
 } from '../../core/sell/config.ts';
 import type { EffectIndex } from '../../core/sell/effects.ts';
+import { defaultMinLevel } from '../../core/sell/needs.ts';
 
 /** What every need the builder adds gets (each can be changed afterwards). */
 export interface BuilderSettings {
@@ -44,10 +45,21 @@ export interface Builder {
   /** Permutation columns: one need per combination of picks (may be empty while being filled). */
   perms: number[][];
   settings: BuilderSettings;
+  /**
+   * Levels chosen in the builder, per effect, for every need it makes: "+N or higher" or "+N only".
+   * Effects without a choice get the default (see `builderLevel`).
+   */
+  levels: Record<number, LevelChoice>;
   /** The need being edited (saving replaces it), or null for new needs. */
   editing: { group: number; need: number } | null;
   /** Bumped when another tab fills the builder, so it scrolls into view and takes the focus. */
   focus: number;
+}
+
+/** Which levels of an effect count: `min` or higher, or `min` only. */
+export interface LevelChoice {
+  min: number;
+  exact: boolean;
 }
 
 export const emptyBuilder = (focus = 0, settings = DEFAULT_BUILDER_SETTINGS): Builder => ({
@@ -55,6 +67,7 @@ export const emptyBuilder = (focus = 0, settings = DEFAULT_BUILDER_SETTINGS): Bu
   anyOf: [],
   perms: [],
   settings,
+  levels: {},
   editing: null,
   focus,
 });
@@ -132,6 +145,25 @@ function exactPicks(columns: number[][], index: EffectIndex | undefined): Set<nu
 }
 
 /**
+ * The level an effect gets in the builder's needs: the one chosen for it; else "+N only" when its
+ * permutation row has other levels of it; else the lowest level for an effect that stacks with
+ * itself (the highest is still kept first); else its own level.
+ */
+export function builderLevel(b: Builder, id: number, index: EffectIndex): LevelChoice {
+  const chosen = b.levels[id];
+  if (chosen) return chosen;
+  const own = index.meta(id)?.level ?? 0;
+  if (exactPicks(b.perms, index).has(id)) return { min: own, exact: true };
+  return { min: defaultMinLevel(index, id) ?? own, exact: false };
+}
+
+/** Choose the level for an effect (every need the builder makes gets it). */
+export const setBuilderLevel = (b: Builder, id: number, choice: LevelChoice): Builder => ({
+  ...b,
+  levels: { ...b.levels, [id]: choice },
+});
+
+/**
  * The needs the builder would add: one per combination of permutation picks, each with the
  * "all of" effects and the "any of" slots. Empty when nothing is picked.
  */
@@ -147,22 +179,32 @@ export function builderDrafts(b: Builder, index?: EffectIndex): Need[] {
   for (const picks of product(columns)) {
     const effects = [...new Set([...required, ...picks])];
     if (effects.length + anyOf.length === 0) continue;
-    const exactHere = picks.filter((id) => exact.has(id));
+    // Chosen levels win; otherwise picks among levels of one effect count that level only.
+    const choice = (id: number): LevelChoice | undefined =>
+      b.levels[id] ??
+      (exact.has(id) && picks.includes(id) ? { min: level(id), exact: true } : undefined);
     if (effects.length === 1 && anyOf.length === 0) {
       const id = effects[0] as number;
       const single: EffectNeed = { kind: 'effect', effect: id, ...b.settings, relics: 'any' };
-      if (exactHere.includes(id)) {
-        single.minLevel = level(id);
-        single.exactLevel = true;
+      const c = choice(id);
+      if (c) {
+        single.minLevel = c.min;
+        if (c.exact) single.exactLevel = true;
       }
       drafts.push(single);
       continue;
     }
     const need: ComboNeed = { kind: 'combo', effects, ...b.settings, relics: 'any' };
     if (anyOf.length) need.anyOf = anyOf.map((s) => [...s]);
-    if (exactHere.length) {
-      need.minLevels = Object.fromEntries(exactHere.map((id) => [id, level(id)]));
-      need.exactLevels = exactHere;
+    const members = [...effects, ...anyOf.flat()];
+    const chosen = members.flatMap((id) => {
+      const c = choice(id);
+      return c ? [[id, c] as const] : [];
+    });
+    if (chosen.length) {
+      need.minLevels = Object.fromEntries(chosen.map(([id, c]) => [id, c.min]));
+      const exactIds = chosen.filter(([, c]) => c.exact).map(([id]) => id);
+      if (exactIds.length) need.exactLevels = exactIds;
     }
     drafts.push(need);
   }
@@ -179,14 +221,31 @@ export function draftLabel(need: Need, index: EffectIndex): string {
       need.kind === 'effect' ? need.exactLevel === true : (need.exactLevels?.includes(id) ?? false);
     const meta = index.meta(id);
     if (!meta) return String(id);
+    const min = need.kind === 'effect' ? need.minLevel : need.minLevels?.[id];
     // "Family +0 only": the base effect's name has no level in it.
-    return exact ? `${meta.family} +${meta.level} only` : meta.name;
+    if (exact) return `${meta.family} +${min ?? meta.level} only`;
+    if (min !== undefined && min < meta.level) return `${meta.family} +${min} or higher`;
+    return meta.name;
   };
   if (need.kind === 'effect') return name(need.effect);
   return [
     ...need.effects.map(name),
     ...(need.anyOf ?? []).map((s) => `any of (${s.map(name).join(' / ')})`),
   ].join(' + ');
+}
+
+/** The levels a need sets, as builder choices. */
+function levelsOf(need: Need): Record<number, LevelChoice> {
+  if (need.kind === 'effect') {
+    return need.minLevel === undefined
+      ? {}
+      : { [need.effect]: { min: need.minLevel, exact: need.exactLevel === true } };
+  }
+  const levels: Record<number, LevelChoice> = {};
+  for (const [id, min] of Object.entries(need.minLevels ?? {})) {
+    levels[Number(id)] = { min, exact: need.exactLevels?.includes(Number(id)) ?? false };
+  }
+  return levels;
 }
 
 /** Load a need into the builder to edit it (or to start a variant of it). */
@@ -199,6 +258,7 @@ export const builderFromNeed = (
   anyOf: need.kind === 'effect' ? [] : (need.anyOf ?? []).map((s) => [...s]),
   perms: [],
   settings: { copies: need.copies, colorScope: need.colorScope, importance: need.importance },
+  levels: levelsOf(need),
   editing: at,
   focus,
 });
