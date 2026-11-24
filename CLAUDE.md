@@ -17,7 +17,7 @@ project is and docs/save-format.md before touching `src/core/save/`.
 - Types: `feat`, `fix`, `perf`, `refactor`, `test`, `docs`, `build`, `ci`,
   `chore`, `style`, `revert`. Breaking change: `feat(scope)!: …`.
 - Scopes (see `commitlint.config.js`): `save`, `catalog`, `builds`, `compare`,
-  `sell`, `worker`, `storage`, `ui`, `build`, `ci`, `deps`, `release`, `docs`, `test`.
+  `sell`, `picks`, `worker`, `storage`, `ui`, `build`, `ci`, `deps`, `release`, `docs`, `test`.
 - One logical change per commit. `feat`/`fix`/`perf` commits become release
   notes, so write the summary for users.
 
@@ -48,7 +48,7 @@ reusable modules:
   worker, in Node and in tests. Each folder has an `index.ts` public API.
   - `binary/`: byte helpers. `save/`: save reader. `catalog/`: game data.
     `builds/`: builds + JSON format. New features get their own folder
-    (e.g. `core/compare/`, `core/sell/`) built on `save`, `catalog`, `builds`.
+    (e.g. `core/compare/`, `core/sell/`, `core/picks/`) built on `save`, `catalog`, `builds`.
 - `src/worker/`: the worker entry and a typed request/response protocol.
   New heavy operations = a new message type in `protocol.ts`.
 - `src/storage/`: file system access. `src/ui/`: React only; no parsing logic.

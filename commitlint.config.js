@@ -10,6 +10,7 @@ export default {
         'builds',
         'compare',
         'sell',
+        'picks',
         'worker',
         'storage',
         'ui',
