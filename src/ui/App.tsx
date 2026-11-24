@@ -6,6 +6,7 @@ import { SellPlanner } from './pages/SellPlanner.tsx';
 import { PlanBar } from './plan/PlanBar.tsx';
 import { PrimaryBar } from './primary/PrimaryBar.tsx';
 import { type Route, useHashRoute } from './useHashRoute.ts';
+import { WindowDrop } from './WindowDrop.tsx';
 
 const MENU: { route: Route; label: string }[] = [
   { route: 'builds', label: 'Builds Viewer' },
@@ -18,6 +19,7 @@ export function App() {
   const route = useHashRoute();
   return (
     <main className="app">
+      <WindowDrop />
       <header className="app__header">
         <h1>Nightreign Buildrocket</h1>
         <nav className="menu" aria-label="Pages">

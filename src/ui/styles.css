@@ -1112,3 +1112,48 @@ tr.need-row--drop-below > td {
 .plan-bar__drop {
   min-width: 16rem;
 }
+
+/* Page-wide drop zone for a save + a plan dragged together. */
+.window-drop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  background: rgb(14 15 20 / 82%);
+  border: 3px dashed var(--accent);
+}
+
+.window-drop__box {
+  display: grid;
+  gap: 0.4rem;
+  max-width: 32rem;
+  padding: 1.5rem 2rem;
+  text-align: center;
+  pointer-events: none;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.window-drop__box b {
+  font-size: 1.3rem;
+  color: var(--accent);
+}
+
+.window-drop__toast {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  z-index: 101;
+  transform: translateX(-50%);
+  max-width: min(40rem, calc(100vw - 2rem));
+  padding: 0.6rem 1rem;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.window-drop__toast--error {
+  border-color: var(--red);
+}

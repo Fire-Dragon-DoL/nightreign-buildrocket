@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -285,4 +285,74 @@ test('without the File System Access API there is only Save as (a download)', as
   await expect(page.getByTestId('rnp-save-as')).toBeVisible();
   await expect(page.getByTestId('rnp-save')).toHaveCount(0);
   await expect(page.getByTestId('rnp-target')).toHaveText('Not saved yet');
+});
+
+test('dragging a save and a plan together anywhere on the page loads both', async ({ page }) => {
+  await page.goto(SELL_URL);
+  const plan = JSON.stringify({
+    format: 'buildrocket-rnp',
+    version: 1,
+    savedAt: '2026-11-24T00:00:00.000Z',
+    effectRules: { families: [], stacksWithSelf: [], noStack: [], stack: [], curseDefaults: [] },
+    groups: [
+      {
+        name: 'General',
+        needs: [
+          {
+            kind: 'effect',
+            effect: { id: 7001502 },
+            copies: 2,
+            colorScope: 'any',
+            importance: 'mustKeep',
+          },
+        ],
+      },
+    ],
+    neverSell: [],
+  });
+  const savePath = await save();
+  // Two files dragged in: the page-wide zone appears, the drop fills both header slots.
+  const drag = async (planName: string) => {
+    // Real files, through a throwaway input, become the drag's data.
+    await page.evaluate(() => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.multiple = true;
+      input.id = 'drag-files';
+      input.hidden = true;
+      document.body.append(input);
+    });
+    const saveFile = join(mkdtempSync(join(tmpdir(), 'nrbr-')), 'NR0000.sl2');
+    writeFileSync(saveFile, readFileSync(savePath));
+    await page.setInputFiles('#drag-files', [saveFile, await writeTemp(planName, plan)]);
+    const data = await page.evaluateHandle(() => {
+      const input = document.getElementById('drag-files') as HTMLInputElement;
+      const dt = new DataTransfer();
+      for (const f of input.files ?? []) dt.items.add(f);
+      input.remove();
+      return dt;
+    });
+    await page.dispatchEvent('body', 'dragenter', { dataTransfer: data });
+    await expect(page.getByTestId('window-drop')).toBeVisible();
+    await page.dispatchEvent('[data-testid="window-drop"]', 'drop', { dataTransfer: data });
+    await expect(page.getByTestId('window-drop')).toHaveCount(0);
+  };
+
+  await drag('notes.txt');
+  await expect(page.getByTestId('window-drop-message')).toContainText('Not loaded');
+  await expect(page.getByTestId('primary-status')).not.toContainText('NR0000.sl2');
+
+  await drag('mine.rnp');
+  await expect(page.getByTestId('primary-status')).toContainText('NR0000.sl2');
+  await expect(page.getByTestId('rnp-status')).toContainText('mine.rnp · 1 need(s)');
+  await expect(page.getByTestId('sell-summary')).toContainText('2 kept');
+
+  // One file alone doesn't bring up the page-wide zone.
+  const one = await page.evaluateHandle(() => {
+    const dt = new DataTransfer();
+    dt.items.add(new File(['x'], 'mine.rnp'));
+    return dt;
+  });
+  await page.dispatchEvent('body', 'dragenter', { dataTransfer: one });
+  await expect(page.getByTestId('window-drop')).toHaveCount(0);
 });
