@@ -544,6 +544,24 @@ describe('stand-ins while godroll copies are missing', () => {
     expect(plan.sell).toHaveLength(0);
   });
 
+  it("a twin stand-in adds nothing (Defeating enemies doesn't stack) unless another need wants it", () => {
+    const PHYS_3 = 6001400;
+    const twin = () => relic(DEEP_RED, [PHYS_3, ART_1]);
+    const [a, b] = [
+      twin(),
+      { ...twin(), effects: [PHYS_3, ART_1, MAX_FP] as RelicSpec['effects'] },
+    ];
+    // Two copies missing, two identical stand-ins: only one counts, the other can go.
+    const plan = planSell([a, b], config([godroll(2)]));
+    expect(plan.sell.reduce((n, e) => n + e.count, 0)).toBe(1);
+    // Physical stacks with itself: wanted twice on its own, both stay.
+    const physToo = config([
+      godroll(2),
+      effectNeed(PHYS_4, { minLevel: 3, copies: 2, colorScope: 'any', importance: 'mustKeep' }),
+    ]);
+    expect(planSell([a, b], physToo).sell).toHaveLength(0);
+  });
+
   it('keeps one stand-in per missing copy, strongest first', () => {
     const physPost4 = relic(DEEP_RED, [PHYS_4, POST_2]);
     const plan = planSell([physPost, physPost4, physDefeat], config([godroll(2)]));

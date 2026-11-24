@@ -204,6 +204,8 @@ export interface Contribution {
   weight: number;
   /** Strength among the need's matches (see `Match.rank`): stronger stand-ins count first. */
   rank: number;
+  /** Combos: the relic's effects that matched (see `Match.matched`). */
+  matched?: number[];
   /** Matching effect, for stacking checks (null for combos: they are about one relic). */
   effect: number | null;
   /** Level matched per wanted effect (combo members in order), -1 = missing. */
@@ -236,6 +238,8 @@ interface Match {
    * missing. Combos: effects matched (earlier members first), then levels, then milder curses.
    */
   rank: number;
+  /** Combos: the relic's effects that matched (for stacking checks between stand-ins). */
+  matched?: number[];
 }
 
 const colorOf = (itemId: number): ColorName | null => {
@@ -389,6 +393,7 @@ function matchNeed(
   const levels: number[] = [];
   const slots = comboSlots(need);
   const slotFull: boolean[] = [];
+  const matched: number[] = [];
   let levelSum = 0;
   for (const slot of slots) {
     let best: Match | null = null;
@@ -419,7 +424,10 @@ function matchNeed(
     }
     slotFull.push(best?.full === true);
     if (!best?.full) allFull = false;
-    else levelSum += best.levels[0] ?? 0;
+    else {
+      levelSum += best.levels[0] ?? 0;
+      if (best.effect !== null) matched.push(best.effect);
+    }
     total += best?.weight ?? 0;
     surplus += best?.full ? best.surplus : 0;
   }
@@ -436,6 +444,7 @@ function matchNeed(
       levels,
       surplus,
       rank: standInRank(slots.length, 0, surplus, curseBurden),
+      matched,
     };
   }
   if (total <= 0) return null;
@@ -445,7 +454,7 @@ function matchNeed(
     .filter((i) => i >= 0);
   if (coreSlots.some((i) => !slotFull[i])) return null;
   // Effects matched, earlier members first (the combo's order is its preference), then levels.
-  const matched = slotFull.filter(Boolean).length;
+  const matchedSlots = slotFull.filter(Boolean).length;
   const order = slotFull.reduce((n, f, i) => n + (f ? 2 ** (slots.length - 1 - i) : 0), 0);
   return {
     full: false,
@@ -453,7 +462,8 @@ function matchNeed(
     effect: null,
     levels,
     surplus: 0,
-    rank: standInRank(matched, order, levelSum, curseBurden),
+    rank: standInRank(matchedSlots, order, levelSum, curseBurden),
+    matched,
   };
 }
 
@@ -482,6 +492,7 @@ export function coverage(bucket: Bucket, index: EffectIndex, skip?: Contribution
     if (c.full) {
       full += 1;
       if (c.effect !== null) counted.add(c.effect);
+      for (const e of c.matched ?? []) counted.add(e);
     } else backups.push(c);
   }
   let slots = bucket.target - full;
@@ -491,17 +502,11 @@ export function coverage(bucket: Bucket, index: EffectIndex, skip?: Contribution
   backups.sort((a, b) => b.weight - a.weight || b.rank - a.rank);
   for (const b of backups) {
     if (slots <= 0) break;
-    if (b.effect !== null) {
-      let ok = true;
-      for (const x of counted) {
-        if (!index.stacks(x, b.effect)) {
-          ok = false;
-          break;
-        }
-      }
-      if (!ok) continue;
-      counted.add(b.effect);
-    }
+    // A stand-in counts only if its effects stack with the ones already counted: a second relic
+    // with the same non-stacking effect (Defeating enemies +1 twice) adds nothing in one build.
+    const own = b.effect !== null ? [b.effect] : (b.matched ?? []);
+    if (own.some((e) => [...counted].some((x) => !index.stacks(x, e)))) continue;
+    for (const e of own) counted.add(e);
     total += b.weight + Math.max(0, b.rank) * RANK_BONUS;
     slots--;
   }
@@ -509,7 +514,7 @@ export function coverage(bucket: Bucket, index: EffectIndex, skip?: Contribution
 }
 
 const contributionKey = (c: Contribution) =>
-  `${c.full ? 'F' : 'B'}|${c.effect}|${c.weight}|${c.rank}`;
+  `${c.full ? 'F' : 'B'}|${c.effect}|${c.weight}|${c.rank}|${c.matched?.join(',') ?? ''}`;
 
 function bucketCoverage(bucket: Bucket, index: EffectIndex): number {
   bucket.current ??= coverage(bucket, index);
