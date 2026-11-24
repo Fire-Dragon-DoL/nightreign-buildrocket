@@ -45,6 +45,11 @@ export interface RollRules {
   slotCount(itemId: number): number;
   /** Every effect the relic can roll, or undefined when unknown. */
   rollableEffects(itemId: number): ReadonlySet<number> | undefined;
+  /**
+   * Which kinds of random relics can roll the effect: normal ones, Deep of Night ones, both, or
+   * neither (fixed-effect relics only, or unknown).
+   */
+  rollsOn(effectId: number): { normal: boolean; deep: boolean };
   /** Compatibility id of an effect; -1 = compatible with everything. */
   compatibilityId(effectId: number): number | undefined;
   needsCurse(effectId: number): boolean;
@@ -167,10 +172,24 @@ export function createRollRules(
   const slotCount = (itemId: number) => slotTables(itemId)?.length ?? 0;
   const unsellable = new Set(raw.unsellable);
 
+  // Everything random normal relics can roll (built on first use).
+  let normalPool: Set<number> | null = null;
+  const normalRollable = (): ReadonlySet<number> => {
+    if (!normalPool) {
+      normalPool = new Set<number>();
+      for (const itemId of Object.keys(raw.relics).map(Number)) {
+        if (relicKind(itemId) !== 'random') continue;
+        for (const id of rollableEffects(itemId) ?? []) normalPool.add(id);
+      }
+    }
+    return normalPool;
+  };
+
   return {
     relicKind,
     slotCount,
     rollableEffects,
+    rollsOn: (id) => ({ normal: normalRollable().has(id), deep: deepPool.has(id) }),
     compatibilityId,
     needsCurse: (id) => needsCursePool.has(id),
     isCurse: (id) => cursePool.has(id),

@@ -2,22 +2,32 @@
  * Helpers on needs: default levels, identity, and merging lists of needs
  * (one plan is one list of needs; groups only survive for older files).
  */
+
+import { rollRules } from '../catalog/catalog.ts';
 import { IMPORTANCES, type Need, needEffectIds, RELIC_COLORS } from './config.ts';
 import type { EffectIndex } from './effects.ts';
 
 /**
  * Lowest level that should count for `id` by default: for an effect that stacks with itself, the
- * lowest level of its family on the same kind of relic (keep the highest, fall back down); for
- * the rest, its own level.
+ * lowest level of its family that can roll on the same kinds of relics (keep the highest, fall
+ * back down). Deep of Night relics also roll some normal levels: Physical Attack Up +4 is deep
+ * only, and deep relics roll +2, +3 and +4, so +4 falls back to +2. For the rest, its own level.
  */
 export function defaultMinLevel(index: EffectIndex, id: number): number | undefined {
   const meta = index.meta(id);
   if (!meta || !index.stacks(id, id)) return undefined;
-  const levels = index
-    .family(meta.family)
-    .filter((m) => m.pool === meta.pool || m.pool === 'any')
-    .map((m) => m.level);
-  const lowest = Math.min(...levels);
+  const family = index.family(meta.family);
+  const on = rollRules().rollsOn(meta.id);
+  const shares = (other: number) => {
+    const o = rollRules().rollsOn(other);
+    return (on.normal && o.normal) || (on.deep && o.deep);
+  };
+  // Effects no random relic rolls (fixed-effect relics, unknown ids): by the effect's own kind.
+  const candidates =
+    on.normal || on.deep
+      ? family.filter((m) => shares(m.id))
+      : family.filter((m) => m.pool === meta.pool || m.pool === 'any');
+  const lowest = Math.min(meta.level, ...candidates.map((m) => m.level));
   return lowest < meta.level ? lowest : undefined;
 }
 

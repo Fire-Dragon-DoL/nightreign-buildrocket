@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { rollRules } from '../catalog/catalog.ts';
 import { comboRoll, type EffectNeed, type Need } from './config.ts';
 import { buildEffectIndex } from './effects.ts';
 import { defaultMinLevel, mergeNeeds, needKey, withDefaultLevels } from './needs.ts';
@@ -15,14 +16,17 @@ const effect = (id: number, extra: Partial<EffectNeed> = {}): EffectNeed => ({
   ...extra,
 });
 
-/** A self-stacking effect above its family's lowest level, and the lowest level. */
+/** A self-stacking effect above the lowest level of it that rolls on the same relics. */
 function stackingAboveLowest() {
+  const rolls = (id: number) => rollRules().rollsOn(id);
   for (const m of index.all()) {
     if (!index.stacks(m.id, m.id)) continue;
+    const on = rolls(m.id);
+    if (!on.normal && !on.deep) continue;
     const lowest = Math.min(
       ...index
         .family(m.family)
-        .filter((f) => f.pool === m.pool || f.pool === 'any')
+        .filter((f) => (on.normal && rolls(f.id).normal) || (on.deep && rolls(f.id).deep))
         .map((f) => f.level),
     );
     if (lowest < m.level) return { id: m.id, lowest };
@@ -31,10 +35,16 @@ function stackingAboveLowest() {
 }
 
 describe('default levels', () => {
-  it('an effect that stacks with itself accepts its family lowest level', () => {
+  it('an effect that stacks with itself accepts the lowest level that rolls on the same relics', () => {
     const { id, lowest } = stackingAboveLowest();
     expect(defaultMinLevel(index, id)).toBe(lowest);
     expect(withDefaultLevels(effect(id), index)).toMatchObject({ minLevel: lowest });
+  });
+
+  it('Physical Attack Up +4 (deep relics) falls back to +2, which deep relics roll too', () => {
+    expect(defaultMinLevel(index, 6001401)).toBe(2);
+    // +2 rolls on normal relics as well: down to +0.
+    expect(defaultMinLevel(index, 7001402)).toBe(0);
   });
 
   it('an effect that does not stack with itself keeps its exact level', () => {
