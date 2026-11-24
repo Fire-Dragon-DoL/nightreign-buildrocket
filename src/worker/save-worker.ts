@@ -1,6 +1,7 @@
 /// <reference lib="webworker" />
 import { loadBuildsOrSave } from '../core/builds/load-file.ts';
 import { findMissingRelics } from '../core/compare/missing.ts';
+import { pickFromSecondary } from '../core/picks/picks.ts';
 import { planSell } from '../core/sell/planner.ts';
 import { sectionPlan } from '../core/sell/sections.ts';
 import type { WorkerRequest, WorkerResponse } from './protocol.ts';
@@ -37,6 +38,10 @@ async function handle(request: WorkerRequest): Promise<WorkerResponse> {
       const plan = planSell(request.pool, request.config, { onProgress: progress });
       const sections = sectionPlan(plan, request.pool);
       return { id, ok: true, type: 'planSell', plan, sections, ms: performance.now() - start };
+    }
+    case 'pickSecondary': {
+      const result = pickFromSecondary(request.main, request.secondary, request.config, progress);
+      return { id, ok: true, type: 'pickSecondary', result, ms: performance.now() - start };
     }
   }
 }

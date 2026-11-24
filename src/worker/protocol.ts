@@ -1,6 +1,7 @@
 import type { Build, RelicSpec } from '../core/builds/builds.ts';
 import type { LoadedFile } from '../core/builds/load-file.ts';
 import type { MissingRelicsResult } from '../core/compare/missing.ts';
+import type { PicksResult } from '../core/picks/picks.ts';
 import type { SellConfig } from '../core/sell/config.ts';
 import type { SellPlan } from '../core/sell/planner.ts';
 import type { SellSection } from '../core/sell/sections.ts';
@@ -9,7 +10,14 @@ import type { SellSection } from '../core/sell/sections.ts';
 export type WorkerRequest =
   | { id: number; type: 'loadFile'; bytes: ArrayBuffer }
   | { id: number; type: 'findMissing'; builds: Build[]; pool: RelicSpec[] }
-  | { id: number; type: 'planSell'; pool: RelicSpec[]; config: SellConfig };
+  | { id: number; type: 'planSell'; pool: RelicSpec[]; config: SellConfig }
+  | {
+      id: number;
+      type: 'pickSecondary';
+      main: RelicSpec[];
+      secondary: RelicSpec[];
+      config: SellConfig;
+    };
 
 /** Messages the save worker sends back. `progress` may arrive any number of times first. */
 export type WorkerResponse =
@@ -24,4 +32,5 @@ export type WorkerResponse =
       sections: SellSection[];
       ms: number;
     }
+  | { id: number; ok: true; type: 'pickSecondary'; result: PicksResult; ms: number }
   | { id: number; ok: false; error: { name: string; message: string } };

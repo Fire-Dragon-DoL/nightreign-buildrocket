@@ -5,6 +5,7 @@
 import type { Build, RelicSpec } from '../core/builds/builds.ts';
 import type { LoadedFile } from '../core/builds/load-file.ts';
 import type { MissingRelicsResult } from '../core/compare/missing.ts';
+import type { PicksResult } from '../core/picks/picks.ts';
 import type { SellConfig } from '../core/sell/config.ts';
 import type { SellPlan } from '../core/sell/planner.ts';
 import type { SellSection } from '../core/sell/sections.ts';
@@ -108,6 +109,21 @@ export class SaveWorkerClient {
       onProgress,
     );
     return { plan, sections, ms };
+  }
+
+  /** Relics of `secondary` that fill what `main` lacks for `config` (see core/picks). */
+  async pickSecondary(
+    main: RelicSpec[],
+    secondary: RelicSpec[],
+    config: SellConfig,
+    onProgress?: Progress,
+  ): Promise<{ result: PicksResult; ms: number }> {
+    const { result, ms } = await this.#send(
+      { type: 'pickSecondary', main, secondary, config },
+      [],
+      onProgress,
+    );
+    return { result, ms };
   }
 
   terminate(): void {
