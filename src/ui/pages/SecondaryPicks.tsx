@@ -18,12 +18,11 @@ import { ProgressBar } from '../components/ProgressBar.tsx';
 import { RelicCell, RelicEffects } from '../components/RelicParts.tsx';
 import { fileSafe } from '../fileSafe.ts';
 import { needCount, updatePlan, usePlan } from '../plan/planStore.ts';
-import { publishPool } from '../plan/referencePool.ts';
 import { type Builder, builderFromRelic } from '../sell/builder.ts';
 import { ComboDialog } from '../sell/ComboDialog.tsx';
 import { addNeeds } from '../sell/configEdit.ts';
 import { RelicRef } from '../sell/WhyCell.tsx';
-import { useLoadedFile } from '../useLoadedFile.ts';
+import { useLoadedFile, usePrimarySource } from '../useLoadedFile.ts';
 
 type Run =
   | { status: 'idle' }
@@ -55,7 +54,7 @@ const relicsOf = (c: {
  * Relic Pool lacks for a sell plan's needs and combos, plus upgrades and possible godrolls.
  */
 export function SecondaryPicks() {
-  const mainSource = useLoadedFile();
+  const mainSource = usePrimarySource();
   const secondarySource = useLoadedFile();
   const mainChar = mainSource.selected;
   const secondaryChar = secondarySource.selected;
@@ -66,8 +65,6 @@ export function SecondaryPicks() {
   );
 
   const { config } = usePlan();
-  // Needs Config counts owned relics from the Relic Pool when the Sell Planner has none.
-  useEffect(() => publishPool('picks', mainChar), [mainChar]);
   const [planMessage, setPlanMessage] = useState<string | null>(null);
 
   // Combos added from the results go into the open plan.
@@ -132,11 +129,12 @@ export function SecondaryPicks() {
   return (
     <>
       <p className="intro">
-        Find relics worth bringing over from another pool. Load the pool you play on as{' '}
-        <b>Relic Pool</b> and the other one as <b>Secondary Pool</b> (a save or builds JSON each,
-        then pick a character), and the relic needs <b>plan</b> open at the top says what you want
-        (set it up in <a href="#/needs">Needs Config</a>). The Secondary Pool is treated as a copy
-        of your Relic Pool that drifted apart: every relic your Relic Pool has removes one matching
+        Find relics worth bringing over from another pool. Your <b>Relic Pool</b> is the{' '}
+        <b>Primary Save File</b>'s character (open at the top); load the other one as{' '}
+        <b>Secondary Save File</b> (a save or .jsl2 builds file, then pick a character): that's the{' '}
+        <b>Secondary Pool</b>. The relic needs <b>plan</b> open at the top says what you want (set
+        it up in <a href="#/needs">Needs Config</a>). The Secondary Pool is treated as a copy of
+        your Relic Pool that drifted apart: every relic your Relic Pool has removes one matching
         copy from it (same color, deep or normal, slots, effects and curses), and only what's left
         (the <b>available pool</b>, relics really earned on that side) is considered. Needs your
         Relic Pool is short of get the <b>fewest</b> available relics that fill them, with the same
@@ -144,11 +142,10 @@ export function SecondaryPicks() {
         are backups). Below that: <b>upgrades</b> (better than a copy you count) and{' '}
         <b>possible godrolls</b> your plan doesn't mention.
       </p>
-      <section className="loaders loaders--pair">
-        <FileSourcePicker source={mainSource} label="Relic Pool" testId="picks-main" />
+      <section className="loaders">
         <FileSourcePicker
           source={secondarySource}
-          label="Secondary Pool"
+          label="Secondary Save File"
           testId="picks-secondary"
         />
       </section>

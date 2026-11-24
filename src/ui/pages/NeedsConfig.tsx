@@ -4,11 +4,11 @@ import { effectiveRules } from '../../core/sell/config.ts';
 import { buildEffectIndex } from '../../core/sell/effects.ts';
 import { ownedCounts } from '../../core/sell/owned.ts';
 import { needCount, updatePlan, usePlan } from '../plan/planStore.ts';
-import { POOL_SOURCE_LABELS, useReferencePool } from '../plan/referencePool.ts';
 import { type Builder, emptyBuilder } from '../sell/builder.ts';
 import { EffectsTab } from '../sell/EffectsTab.tsx';
 import { GroupsTab } from '../sell/GroupsTab.tsx';
 import { StackingTab } from '../sell/StackingTab.tsx';
+import { usePrimarySource } from '../useLoadedFile.ts';
 
 type Tab = 'normal' | 'deep' | 'groups' | 'stacking';
 const TABS: { tab: Tab; label: string }[] = [
@@ -20,13 +20,12 @@ const TABS: { tab: Tab; label: string }[] = [
 
 /**
  * Needs Config: edit the open relic needs plan (.rnp), used by the Sell Planner and Secondary Pool
- * Picks. Owned counts and build seeding use the pool loaded on one of those pages.
+ * Picks. Owned counts and build seeding use the Primary Save File's character.
  */
 export function NeedsConfig() {
   const plan = usePlan();
   const config = plan.config;
-  const reference = useReferencePool();
-  const character = reference?.character;
+  const character = usePrimarySource().selected;
   const owned = useMemo(
     () => (character ? ownedCounts(character.relics ?? relicsOfBuilds(character.builds)) : null),
     [character],
@@ -53,13 +52,12 @@ export function NeedsConfig() {
       <p className="muted" data-testid="needs-pool">
         {character ? (
           <>
-            Owned counts and builds from <b>{character.name}</b> (
-            {POOL_SOURCE_LABELS[reference.source]}).
+            Owned counts and builds from <b>{character.name}</b> (Primary Save File).
           </>
         ) : (
           <>
-            Load a save in the <a href="#/sell">Sell Planner</a> (or a Relic Pool in Secondary Pool
-            Picks) to see how many relics you own with each effect and to protect your builds.
+            Open a <b>Primary Save File</b> at the top to see how many relics you own with each
+            effect and to protect your builds.
           </>
         )}{' '}
         · {needCount(config)} need(s)

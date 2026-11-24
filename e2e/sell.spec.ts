@@ -91,7 +91,7 @@ test.beforeAll(() => {
 test('plans what to sell, saves and reloads the plan, seeds from builds', async ({ page }) => {
   await stubSavePicker(page);
   await page.goto(SELL_URL);
-  await page.getByTestId('sell-input').setInputFiles(await save());
+  await page.getByTestId('primary-input').setInputFiles(await save());
 
   // Empty plan: everything sellable is listed, the godroll flagged.
   await expect(page.getByTestId('sell-summary')).toContainText('5 relic(s) can be sold, 0 kept');
@@ -103,7 +103,7 @@ test('plans what to sell, saves and reloads the plan, seeds from builds', async 
   // Want 2 red Magic Attack +2 as "must keep": two of the three are kept.
   await page.getByTestId('menu-needs').click();
   // Needs Config counts the Sell Planner's relics; the plan bar is there on every page.
-  await expect(page.getByTestId('needs-pool')).toContainText('Seller (Sell Planner)');
+  await expect(page.getByTestId('needs-pool')).toContainText('Seller (Primary Save File)');
   await page.getByTestId('tab-normal').click();
   await page.getByTestId('normal-search').fill('Magic Attack Power Up +2');
   const row = page.getByTestId('effect-row').filter({ hasText: 'Magic Attack Power Up +2' });
@@ -149,7 +149,7 @@ test('plans what to sell, saves and reloads the plan, seeds from builds', async 
 
 test('builds, edits and reorders combos; copies a relic from the results', async ({ page }) => {
   await page.goto(SELL_URL);
-  await page.getByTestId('sell-input').setInputFiles(await save());
+  await page.getByTestId('primary-input').setInputFiles(await save());
 
   // A relic from the results opens the builder in a popup; adding keeps the results' place.
   const copy = page.getByTestId('copy-to-builder').last();

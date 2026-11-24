@@ -10,16 +10,14 @@ import type { SellPlan } from '../../core/sell/planner.ts';
 import type { SellSection } from '../../core/sell/sections.ts';
 import { CSV_FILE_TYPE, isAbortError, saveTextFile } from '../../storage/files.ts';
 import { saveWorker } from '../../worker/client.ts';
-import { FileSourcePicker } from '../components/FileSourcePicker.tsx';
 import { ProgressBar } from '../components/ProgressBar.tsx';
 import { fileSafe } from '../fileSafe.ts';
 import { needCount, updatePlan, usePlan } from '../plan/planStore.ts';
-import { publishPool } from '../plan/referencePool.ts';
 import { type Builder, builderFromRelic } from '../sell/builder.ts';
 import { ComboDialog } from '../sell/ComboDialog.tsx';
 import { addNeeds } from '../sell/configEdit.ts';
 import { ResultsView } from '../sell/ResultsView.tsx';
-import { useLoadedFile } from '../useLoadedFile.ts';
+import { usePrimarySource } from '../useLoadedFile.ts';
 
 type Run =
   | { status: 'idle' }
@@ -29,7 +27,7 @@ type Run =
 
 /** Sell Planner (goal 3): which relics can go, ranked by risk, for a saved config. */
 export function SellPlanner() {
-  const source = useLoadedFile();
+  const source = usePrimarySource();
   const character = source.selected;
   const pool = useMemo<RelicSpec[] | null>(
     () => (character ? (character.relics ?? relicsOfBuilds(character.builds)) : null),
@@ -38,8 +36,6 @@ export function SellPlanner() {
   const owned = useMemo(() => (pool ? ownedCounts(pool) : null), [pool]);
 
   const { config } = usePlan();
-  // Needs Config counts owned relics and seeds builds from this pool.
-  useEffect(() => publishPool('sell', character), [character]);
   // The builder popup opened from the results (null: closed).
   const [popup, setPopup] = useState<Builder | null>(null);
   const setPopupBuilder = useCallback(
@@ -103,16 +99,13 @@ export function SellPlanner() {
   return (
     <>
       <p className="intro">
-        Find relics you can sell. Load your <b>save</b> (or a builds JSON); what to keep comes from
-        the relic needs plan open at the top, set up in <a href="#/needs">Needs Config</a>. A relic
-        is suggested only if everything your plan wants is still there without it, and each one says
-        why: nothing on it is wanted, a relic you keep covers it, or enough copies are left. Selling
-        everything above any line is safe in the order shown.
+        Find relics you can sell from the <b>Primary Save File</b>'s character; what to keep comes
+        from the relic needs plan. Both are open at the top; set the plan up in{' '}
+        <a href="#/needs">Needs Config</a>. A relic is suggested only if everything your plan wants
+        is still there without it, and each one says why: nothing on it is wanted, a relic you keep
+        covers it, or enough copies are left. Selling everything above any line is safe in the order
+        shown.
       </p>
-      <section className="loaders">
-        <FileSourcePicker source={source} label="Relics: save or builds JSON" testId="sell" />
-      </section>
-
       {character && !character.relics && (
         <p className="warning" data-testid="sell-pool-warning">
           This builds file has no relic inventory (it was exported by an older version), so only the
@@ -121,7 +114,12 @@ export function SellPlanner() {
       )}
 
       <section className="builds-section">
-        {!pool && <p className="muted">Load a save or builds JSON to see what you can sell.</p>}
+        {!pool && (
+          <p className="muted">
+            Drop a save or a .jsl2 builds file on <b>Primary Save File</b> at the top to see what
+            you can sell.
+          </p>
+        )}
         {run.status === 'running' && !shown && (
           <ProgressBar label="Planning…" value={run.progress} testId="sell-progress" />
         )}

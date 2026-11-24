@@ -10,6 +10,15 @@ export const JSON_FILE_TYPE: FilePickerAcceptType = {
   accept: { 'application/json': ['.json'] },
 };
 
+/** Builds + relic inventory exported by this tool: JSON, with its own extension. */
+export const BUILDS_FILE_TYPE: FilePickerAcceptType = {
+  description: 'Buildrocket builds (JSON)',
+  accept: { 'application/json': ['.jsl2'] },
+};
+
+/** What a save picker accepts: saves, .jsl2 builds files and older .json ones. */
+export const SAVE_OR_BUILDS_ACCEPT = '.sl2,.co2,.jsl2,.json,application/json';
+
 export const CSV_FILE_TYPE: FilePickerAcceptType = {
   description: 'CSV (spreadsheet)',
   accept: { 'text/csv': ['.csv'] },

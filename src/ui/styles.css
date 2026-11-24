@@ -109,7 +109,7 @@ select {
   flex-wrap: wrap;
 }
 
-.menu__item--needs {
+.menu__item.menu__item--needs {
   border-color: var(--accent);
   font-weight: 600;
 }
@@ -144,12 +144,6 @@ select {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.plan-bar__hint {
-  font-size: 0.72rem;
-  color: var(--muted, inherit);
-  opacity: 0.75;
 }
 
 .plan-bar__status {
@@ -1062,4 +1056,59 @@ tr.need-row--drop-below > td {
 /* Where "Save" writes the plan. */
 .plan-target {
   font-size: 0.85rem;
+}
+
+/* Header: Primary Save File above the relic needs plan. */
+.app__files {
+  display: grid;
+  gap: 0.3rem;
+}
+
+.file-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.file-bar__drop {
+  display: grid;
+  padding: 0.2rem 0.6rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  min-width: 16rem;
+  max-width: 26rem;
+}
+
+.file-bar__drop:hover,
+.file-bar__drop--over {
+  border-color: var(--accent);
+}
+
+.file-bar__drop input {
+  display: none;
+}
+
+.file-bar__kind,
+.plan-bar__kind {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+}
+
+.file-bar__name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-bar__message {
+  font-size: 0.75rem;
+}
+
+.plan-bar__drop {
+  min-width: 16rem;
 }

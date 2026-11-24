@@ -10,7 +10,7 @@ import { FileSourcePicker } from '../components/FileSourcePicker.tsx';
 import { MissingRelicList } from '../components/MissingRelicList.tsx';
 import { ProgressBar } from '../components/ProgressBar.tsx';
 import { fileSafe } from '../fileSafe.ts';
-import { useLoadedFile } from '../useLoadedFile.ts';
+import { useLoadedFile, usePrimarySource } from '../useLoadedFile.ts';
 
 type Run =
   | { status: 'idle' }
@@ -23,7 +23,7 @@ type Run =
  * (ticked) build of the "Builds source" character.
  */
 export function MissingRelics() {
-  const source = useLoadedFile();
+  const source = usePrimarySource();
   const pool = useLoadedFile();
   const sourceChar = source.selected;
   const poolChar = pool.selected;
@@ -95,14 +95,13 @@ export function MissingRelics() {
   return (
     <>
       <p className="intro">
-        Find which relics you lack to recreate builds from another save. Load the file with the
-        builds as <b>Builds source</b> and the one you'll play on as <b>Relics pool</b>, then pick a
-        character on each side. Each missing relic shows the builds it blocks. Untick builds you
-        don't need, then export the list as CSV.
+        Find which relics you lack to recreate builds from another save. The builds come from the{' '}
+        <b>Primary Save File</b> (at the top); load the one you'll play on as{' '}
+        <b>Secondary Save File</b> and pick its character. Each missing relic shows the builds it
+        blocks. Untick builds you don't need, then export the list as CSV.
       </p>
-      <section className="loaders loaders--pair">
-        <FileSourcePicker source={source} label="Builds source" testId="source" />
-        <FileSourcePicker source={pool} label="Relics pool" testId="pool" />
+      <section className="loaders">
+        <FileSourcePicker source={pool} label="Secondary Save File" testId="pool" />
       </section>
 
       {poolChar && !poolChar.relics && (

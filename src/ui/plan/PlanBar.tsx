@@ -53,11 +53,11 @@ export function PlanBar() {
           );
         }}
       >
+        <span className="plan-bar__kind">Relic Needs Plan</span>
         <span className="plan-bar__name" data-testid="rnp-status">
           {plan.file ? plan.file.name : 'Unsaved plan'}
           {plan.dirty ? ' (changed)' : ''} · {needCount(plan.config)} need(s)
         </span>
-        <span className="plan-bar__hint">Drop or click to open a plan</span>
         <input
           id={id}
           type="file"

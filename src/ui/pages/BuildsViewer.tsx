@@ -1,17 +1,14 @@
 import { useState } from 'react';
-import { toBuildsDocument } from '../../core/builds/builds-json.ts';
-import { inventoriesOf } from '../../core/builds/characters.ts';
-import { isAbortError, saveTextFile } from '../../storage/files.ts';
+import { isAbortError } from '../../storage/files.ts';
 import { BuildTable } from '../components/BuildTable.tsx';
-import { FileSourcePicker } from '../components/FileSourcePicker.tsx';
-import { fileSafe } from '../fileSafe.ts';
-import { useLoadedFile } from '../useLoadedFile.ts';
+import { exportBuildsFile } from '../primary/exportBuilds.ts';
+import { usePrimarySource } from '../useLoadedFile.ts';
 
 const ALL = '__all__';
 
 /** Goal 1: show every build of a save (or builds file) and export them to JSON. */
 export function BuildsViewer() {
-  const source = useLoadedFile();
+  const source = usePrimarySource();
   const { characters, selected } = source;
   const [message, setMessage] = useState<string | null>(null);
   const [exportKey, setExportKey] = useState<string | null>(null);
@@ -19,15 +16,12 @@ export function BuildsViewer() {
   const exportChoice = exportKey ?? selected?.key ?? ALL;
   const exported =
     exportChoice === ALL ? characters : characters.filter((c) => c.key === exportChoice);
-  const exportBuilds = exported.flatMap((c) => c.builds);
   const exportLabel = exportChoice === ALL ? 'all' : (exported[0]?.label ?? '');
 
   const exportJson = async () => {
     try {
-      const doc = toBuildsDocument(exportBuilds, inventoriesOf(exported));
-      const json = JSON.stringify(doc, null, 2);
-      await saveTextFile(json, `nightreign-builds-${fileSafe(exportLabel) || 'export'}.json`);
-      setMessage(`Exported ${exportBuilds.length} builds.`);
+      const n = await exportBuildsFile(exported, exportLabel);
+      setMessage(`Exported ${n} builds.`);
     } catch (err) {
       if (!isAbortError(err)) setMessage(`Export failed: ${(err as Error).message}`);
     }
@@ -36,20 +30,15 @@ export function BuildsViewer() {
   return (
     <>
       <p className="intro">
-        Open a save or a builds JSON and pick a character to see all its saved builds. Export them
-        to JSON to back them up or send them to a friend.
+        All saved builds of the <b>Primary Save File</b>'s character (open a save or a builds file
+        at the top, and pick the character there). Export them as a builds file (.jsl2) to back them
+        up or send them to a friend: it opens anywhere a save does.
       </p>
-      <section className="loaders">
-        <FileSourcePicker
-          source={source}
-          label="Open save or builds JSON"
-          testId="viewer"
-          onNewFile={() => {
-            setExportKey(null);
-            setMessage(null);
-          }}
-        />
-      </section>
+      {!selected && (
+        <p className="muted" data-testid="viewer-empty">
+          Drop a save or a .jsl2 builds file on <b>Primary Save File</b> at the top.
+        </p>
+      )}
       {message && (
         <p className="message" data-testid="message">
           {message}
@@ -76,7 +65,7 @@ export function BuildsViewer() {
               </select>
             </label>
             <button type="button" onClick={exportJson} disabled={exported.length === 0}>
-              Export builds to JSON
+              Export builds (.jsl2)
             </button>
           </div>
           <BuildTable builds={selected.builds} />

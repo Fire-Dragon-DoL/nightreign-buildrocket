@@ -4,11 +4,12 @@ import { NeedsConfig } from './pages/NeedsConfig.tsx';
 import { SecondaryPicks } from './pages/SecondaryPicks.tsx';
 import { SellPlanner } from './pages/SellPlanner.tsx';
 import { PlanBar } from './plan/PlanBar.tsx';
+import { PrimaryBar } from './primary/PrimaryBar.tsx';
 import { type Route, useHashRoute } from './useHashRoute.ts';
 
 const MENU: { route: Route; label: string }[] = [
   { route: 'builds', label: 'Builds Viewer' },
-  { route: 'missing', label: 'Relics Needs' },
+  { route: 'missing', label: 'Relics Diff' },
   { route: 'sell', label: 'Sell Planner' },
   { route: 'picks', label: 'Secondary Pool Picks' },
 ];
@@ -31,9 +32,12 @@ export function App() {
             </a>
           ))}
         </nav>
-        {/* The relic needs plan is global: always here, used by the Sell Planner and Picks. */}
+        {/* The Primary Save File and the relic needs plan are global: always here, for every page. */}
         <div className="app__plan">
-          <PlanBar />
+          <div className="app__files">
+            <PrimaryBar />
+            <PlanBar />
+          </div>
           <a
             href="#/needs"
             className="menu__item menu__item--needs"

@@ -7,15 +7,15 @@ no install, and your save never leaves your computer.
 ## Goals
 
 1. **Builds:** read a save, extract every saved relic build, show it, export
-   it to JSON and load it back.
-2. **Missing relics:** take two saves (or builds JSON files), pick a
+   it as a builds file (`.jsl2`, JSON inside) and load it back.
+2. **Missing relics:** take two saves (or `.jsl2` builds files), pick a
    "builds source" and a "relics pool" character, and list (on screen and as
    CSV) the relics the pool is missing to recreate the source's builds.
 3. **Sell planner:** describe which effects you want to keep, how many copies
    per color and which combinations (optionally derived from your builds),
    and get a list of relics that are safe to sell.
 
-Status: all three work: Builds Viewer, Relics Needs and Sell Planner, plus
+Status: all three work: Builds Viewer, Relics Diff and Sell Planner, plus
 Secondary Pool Picks (relics worth bringing over from another pool).
 
 ## Using it
@@ -23,16 +23,20 @@ Secondary Pool Picks (relics worth bringing over from another pool).
 1. Download `nightreign-buildrocket-vX.Y.Z.html` from the
    [releases](https://github.com/Fire-Dragon-DoL/nightreign-buildrocket/releases).
 2. Open it in **Google Chrome** (other browsers are not supported).
-3. Open your save: `%APPDATA%\Nightreign\<steam id>\NR0000.sl2`
-   (`NR0000.co2` with the Seamless Co-op mod).
+3. Drop your save on **Primary Save File** at the top:
+   `%APPDATA%\Nightreign\<steam id>\NR0000.sl2` (`NR0000.co2` with the
+   Seamless Co-op mod), and pick the character there.
 
-Anywhere the app asks for a file, a save and a builds JSON exported by the
-app are interchangeable. Exported builds files also carry every relic each
-exported character owns, so a friend can send you a JSON instead of their save.
+The **Primary Save File** and the **Relic Needs Plan** sit at the top of every
+page, always ready to be replaced, and every page uses them. Anywhere the app
+asks for a file, a save and a builds file exported by the app (`.jsl2`; older
+`.json` exports open too) are interchangeable. _Export .jsl2_ (next to the
+Primary Save File) saves the character's builds and every relic it owns, so a
+friend can send you a `.jsl2` instead of their save.
 
-**Relics Needs:** open the save (or JSON) with the builds you
-want as _Builds source_ and the one whose relics you will use as _Relics
-pool_, then pick a character on each side. Relics match only when identical
+**Relics Diff:** the builds come from the Primary Save File; open the save (or
+`.jsl2`) whose relics you will use as _Secondary Save File_ and pick its
+character. Relics match only when identical
 (same relic, effects and curses). A relic can sit in several presets, so it is
 needed as many times as the single build using it most needs it. Each missing
 relic lists the builds it blocks; untick builds you don't care about. _Export
@@ -45,8 +49,8 @@ another. In Chrome, _Save_ writes back to the file you opened or last saved
 (_Save as…_ always asks); other browsers download it each time. Plans saved
 before the rename (`.rsp`) still open. Closing the tab with unsaved changes asks
 first. A plan holds only effects and rules, never anything from your save.
-_Needs Config_ (top right) edits it; owned counts and build seeding use the save
-loaded in the Sell Planner (or the Relic Pool in Secondary Pool Picks):
+_Needs Config_ (top right) edits it; owned counts and build seeding use the
+Primary Save File:
 
 - **Normal effects / Deep of Night:** give an effect an importance (Low,
   Normal, High, Must keep) and how many copies to keep, per color or in
@@ -70,7 +74,7 @@ loaded in the Sell Planner (or the Relic Pool in Secondary Pool Picks):
 - **Seed from builds:** add what builds use to the list once (merged, copies = the most any
   single build uses), then edit it.
 
-**Sell Planner:** open your save (or JSON); it uses the open plan. It lists every
+**Sell Planner:** uses the Primary Save File and the open plan. It lists every
 relic you can sell, grouped by Deep/normal, color and
 size, from risk 0 (safe) to 99, with why it's safe or what it would hurt, and
 a suggested in-game search per group. Selling everything up to a given risk
@@ -78,9 +82,10 @@ is safe in the order shown. Relics the game won't let you sell aren't listed
 but still count toward your needs. Relics nothing in your plan wants but that
 look rare are flagged _possible godroll_.
 
-**Secondary Pool Picks:** open the pool you play on as _Relic Pool_ and another
-one (another character, or a friend's save or JSON) as _Secondary Pool_; it uses
-the open plan too. The
+**Secondary Pool Picks:** the Primary Save File is the pool you play on
+(_Relic Pool_); open another one (another character, or a friend's save or
+`.jsl2`) as _Secondary Save File_ (the _Secondary Pool_). It uses the open plan
+too. The
 Secondary Pool is treated as a copy of the Relic Pool that drifted apart: each
 Relic Pool relic sets aside one matching Secondary copy (same color, deep or
 normal, slot count, effects and curses; the name doesn't matter) (2 red Fire +2 on the

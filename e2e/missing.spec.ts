@@ -78,7 +78,7 @@ test.beforeAll(() => {
   if (!existsSync(APP)) throw new Error('dist/index.html is missing: run `pnpm build` first.');
 });
 
-test('has a menu with the builds viewer, relics needs and the sell planner', async ({ page }) => {
+test('has a menu with the builds viewer, relics diff and the sell planner', async ({ page }) => {
   await page.goto(pathToFileURL(APP).href);
   const menu = page.getByRole('navigation', { name: 'Pages' });
   await expect(menu.getByRole('link', { name: 'Builds Viewer' })).toHaveAttribute(
@@ -86,15 +86,19 @@ test('has a menu with the builds viewer, relics needs and the sell planner', asy
     'page',
   );
   await expect(menu.getByRole('link', { name: 'Sell Planner' })).toBeVisible();
-  await menu.getByRole('link', { name: 'Relics Needs' }).click();
-  await expect(page.getByTestId('source-input')).toBeAttached();
-  await expect(page.getByTestId('viewer-input')).toBeHidden();
+  await menu.getByRole('link', { name: 'Relics Diff' }).click();
+  await expect(page.getByTestId('pool-input')).toBeAttached();
+  await expect(
+    page.locator('.file-drop__label', { hasText: 'Secondary Save File' }).first(),
+  ).toBeVisible();
+  // The Primary Save File is in the header on every page.
+  await expect(page.getByTestId('primary-bar')).toBeVisible();
 });
 
 test('lists the relics the pool lacks, with the builds each one blocks', async ({ page }) => {
   await stubSavePicker(page);
   await page.goto(MISSING_URL);
-  await page.getByTestId('source-input').setInputFiles(await sourceSave());
+  await page.getByTestId('primary-input').setInputFiles(await sourceSave());
   await page.getByTestId('pool-input').setInputFiles(await poolSave());
 
   await expect(page.getByTestId('missing-summary')).toContainText(
@@ -124,20 +128,20 @@ test('lists the relics the pool lacks, with the builds each one blocks', async (
   await expect(rows.first()).toContainText('Burn only');
 });
 
-test('a builds JSON with its inventory works as either side', async ({ page }) => {
+test('a .jsl2 builds file with its inventory works as either side', async ({ page }) => {
   await stubSavePicker(page);
   // Export the pool character (builds + inventory) from the builds viewer.
   await page.goto(pathToFileURL(APP).href);
-  await page.getByTestId('viewer-input').setInputFiles(await poolSave());
-  await page.getByRole('button', { name: 'Export builds to JSON' }).click();
+  await page.getByTestId('primary-input').setInputFiles(await poolSave());
+  await page.getByRole('button', { name: 'Export builds (.jsl2)' }).click();
   await expect(page.getByTestId('message')).toContainText('Exported');
   const json = await lastWritten(page);
   expect(JSON.parse(json).inventories[0].relics).toHaveLength(1);
-  const jsonPath = join(mkdtempSync(join(tmpdir(), 'nrbr-')), 'pool.json');
+  const jsonPath = join(mkdtempSync(join(tmpdir(), 'nrbr-')), 'pool.jsl2');
   writeFileSync(jsonPath, json);
 
   await page.goto(MISSING_URL);
-  await page.getByTestId('source-input').setInputFiles(await sourceSave());
+  await page.getByTestId('primary-input').setInputFiles(await sourceSave());
   await page.getByTestId('pool-input').setInputFiles(jsonPath);
   await expect(page.getByTestId('pool-status')).toContainText('builds file');
   await expect(page.getByTestId('pool-warning')).toHaveCount(0);

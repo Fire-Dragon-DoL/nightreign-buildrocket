@@ -88,7 +88,7 @@ test('picks secondary pool relics for the open plan; plans open and save from th
 
   await page.getByLabel('Pages').getByRole('link', { name: 'Secondary Pool Picks' }).click();
   const file = await save();
-  await page.getByTestId('picks-main-input').setInputFiles(file);
+  await page.getByTestId('primary-input').setInputFiles(file);
   await page.getByTestId('picks-secondary-input').setInputFiles(file);
   await expect(page.getByTestId('picks-secondary-character')).toBeVisible();
   await page.getByTestId('picks-secondary-character').selectOption({ index: 1 });

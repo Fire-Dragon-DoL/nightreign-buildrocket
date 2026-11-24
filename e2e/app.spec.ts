@@ -74,10 +74,10 @@ test('runs from file:// with no errors and no network', async ({ page }) => {
 
 test("parses a save in a web worker and shows the first character's builds", async ({ page }) => {
   await page.goto(APP_URL);
-  await page.getByTestId('viewer-input').setInputFiles(await writeSyntheticSave());
+  await page.getByTestId('primary-input').setInputFiles(await writeSyntheticSave());
 
-  await expect(page.getByTestId('viewer-status')).toContainText('2 character(s)');
-  await expect(page.getByTestId('viewer-character')).toHaveValue('slot:0');
+  await expect(page.getByTestId('primary-status')).toContainText('2 character(s)');
+  await expect(page.getByTestId('primary-character')).toHaveValue('slot:0');
   const builds = page.getByTestId('build');
   await expect(builds).toHaveCount(1);
   await expect(builds.first()).toContainText('Test Build');
@@ -87,9 +87,9 @@ test("parses a save in a web worker and shows the first character's builds", asy
 
 test('switches between characters', async ({ page }) => {
   await page.goto(APP_URL);
-  await page.getByTestId('viewer-input').setInputFiles(await writeSyntheticSave());
+  await page.getByTestId('primary-input').setInputFiles(await writeSyntheticSave());
   await page
-    .getByTestId('viewer-character')
+    .getByTestId('primary-character')
     .selectOption({ label: 'Second Hero (slot 3) · 2 builds' });
   await expect(page.getByTestId('build')).toHaveCount(2);
   await expect(page.getByTestId('build-table')).toContainText('Other A');
@@ -103,8 +103,8 @@ test('shows a readable error for a file that is not a save', async ({ page }) =>
   const dir = mkdtempSync(join(tmpdir(), 'nrbr-'));
   const path = join(dir, 'bogus.sl2');
   writeFileSync(path, 'not a save');
-  await page.getByTestId('viewer-input').setInputFiles(path);
-  await expect(page.getByTestId('viewer-status')).toContainText('not a Nightreign PC save');
+  await page.getByTestId('primary-input').setInputFiles(path);
+  await expect(page.getByTestId('primary-status')).toContainText('not a Nightreign PC save');
 });
 
 test('exports the chosen character to a file on disk and imports it back', async ({ page }) => {
@@ -112,19 +112,24 @@ test('exports the chosen character to a file on disk and imports it back', async
   await page.addInitScript(() => {
     const w = window as unknown as { __written: string[]; showSaveFilePicker: unknown };
     w.__written = [];
-    w.showSaveFilePicker = async () => ({
-      createWritable: async () => ({
-        write: async (data: string) => w.__written.push(data),
-        close: async () => {},
-      }),
-    });
+    (w as unknown as { __names: string[] }).__names = [];
+    w.showSaveFilePicker = async (options: { suggestedName: string }) => (
+      (w as unknown as { __names: string[] }).__names.push(options.suggestedName),
+      {
+        name: options.suggestedName,
+        createWritable: async () => ({
+          write: async (data: string) => w.__written.push(data),
+          close: async () => {},
+        }),
+      }
+    );
   });
   await page.goto(APP_URL);
-  await page.getByTestId('viewer-input').setInputFiles(await writeSyntheticSave());
+  await page.getByTestId('primary-input').setInputFiles(await writeSyntheticSave());
   await expect(page.getByTestId('build-table')).toContainText('Test Build');
 
   const exportAndRead = async () => {
-    await page.getByRole('button', { name: 'Export builds to JSON' }).click();
+    await page.getByRole('button', { name: 'Export builds (.jsl2)' }).click();
     await expect(page.getByTestId('message')).toContainText('Exported');
     const written = await page.evaluate(
       () => (window as unknown as { __written: string[] }).__written,
@@ -146,14 +151,22 @@ test('exports the chosen character to a file on disk and imports it back', async
   await page.getByTestId('export-character').selectOption('__all__');
   const all = JSON.parse(await exportAndRead());
   expect(all.builds).toHaveLength(3);
+  expect(await page.evaluate(() => (window as unknown as { __names: string[] }).__names)).toEqual([
+    'nightreign-builds-Second-Hero-slot-3.jsl2',
+    'nightreign-builds-all.jsl2',
+  ]);
+
+  // The header's Export saves the Primary Save File's character as .jsl2 too.
+  await page.getByTestId('primary-export').click();
+  await expect(page.getByTestId('primary-message')).toContainText('Exported 1 builds');
 
   await page.reload();
   const dir = mkdtempSync(join(tmpdir(), 'nrbr-'));
-  const jsonPath = join(dir, 'builds.json');
+  const jsonPath = join(dir, 'builds.jsl2');
   writeFileSync(jsonPath, JSON.stringify(all));
-  await page.getByTestId('viewer-input').setInputFiles(jsonPath);
+  await page.getByTestId('primary-input').setInputFiles(jsonPath);
   await expect(page.getByTestId('build-table')).toContainText('Test Build');
-  await page.getByTestId('viewer-character').selectOption({ label: 'Second Hero · 2 builds' });
+  await page.getByTestId('primary-character').selectOption({ label: 'Second Hero · 2 builds' });
   await expect(page.getByTestId('build')).toHaveCount(2);
 });
 
@@ -170,8 +183,8 @@ const realSave =
 test('loads a real save quickly', async ({ page }) => {
   test.skip(!realSave, 'No real save provided (NR_SAVE_FILE or test/fixtures/local/)');
   await page.goto(APP_URL);
-  await page.getByTestId('viewer-input').setInputFiles(realSave as string);
-  await expect(page.getByTestId('viewer-status')).toContainText(/character\(s\) \(\d+ ms\)/, {
+  await page.getByTestId('primary-input').setInputFiles(realSave as string);
+  await expect(page.getByTestId('primary-status')).toContainText(/character\(s\) \(\d+ ms\)/, {
     timeout: 10_000,
   });
   await expect(page.getByTestId('build').first()).toBeVisible();
@@ -179,7 +192,7 @@ test('loads a real save quickly', async ({ page }) => {
 
 test('shows game icons', async ({ page }) => {
   await page.goto(APP_URL);
-  await page.getByTestId('viewer-input').setInputFiles(await writeSyntheticSave());
+  await page.getByTestId('primary-input').setInputFiles(await writeSyntheticSave());
   const icon = page.getByTestId('build').first().locator('img.icon').first();
   await expect(icon).toBeVisible();
   expect(await icon.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);

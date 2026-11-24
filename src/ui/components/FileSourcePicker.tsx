@@ -1,3 +1,4 @@
+import { SAVE_OR_BUILDS_ACCEPT } from '../../storage/files.ts';
 import type { FileSource } from '../useLoadedFile.ts';
 import { FileDrop } from './FileDrop.tsx';
 import { ProgressBar } from './ProgressBar.tsx';
@@ -12,7 +13,7 @@ interface Props {
 }
 
 const HINT =
-  'A save (NR0000.sl2 / NR0000.co2, in %APPDATA%\\Nightreign\\<steam id>) or a builds JSON exported from this tool';
+  'A save (NR0000.sl2 / NR0000.co2, in %APPDATA%\\Nightreign\\<steam id>) or a builds file (.jsl2, or an older .json) exported from this tool';
 
 /**
  * Open a save or a builds JSON (either works), then pick one of its
@@ -25,7 +26,7 @@ export function FileSourcePicker({ source, label, testId, onNewFile }: Props) {
       <FileDrop
         label={label}
         hint={HINT}
-        accept=".sl2,.co2,.json,application/json"
+        accept={SAVE_OR_BUILDS_ACCEPT}
         onFile={(file) => {
           onNewFile?.();
           void source.load(file);
