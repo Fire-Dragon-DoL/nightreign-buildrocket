@@ -101,14 +101,15 @@ test('picks secondary pool relics for the open plan; plans open and save from th
   // Main's one copy is set aside from Alt: 2 Magic relics and the godroll are really new.
   await expect(page.getByTestId('picks-available')).toContainText('Available pool: 3 relic(s); 1');
   await expect(page.getByTestId('pick-row')).toContainText('plan wants 3');
-  await expect(page.getByTestId('godroll-row')).toHaveCount(1);
+  await expect(page.getByTestId('roll-row')).toHaveCount(1);
+  await expect(page.getByTestId('roll-kind')).toHaveText('Godroll (3 good)');
 
   await page.getByRole('button', { name: 'Export CSV' }).click();
   await expect(page.getByTestId('message')).toContainText('Exported 2 lines');
   expect((await lastWritten(page)).startsWith('﻿List,Take,Available,Relic,')).toBe(true);
 
   // Add the godroll as a combo to the open plan from here, in the popup.
-  await page.getByTestId('godroll-row').getByTestId('copy-to-builder').click();
+  await page.getByTestId('roll-row').getByTestId('copy-to-builder').click();
   const dialog = page.getByTestId('picks-combo-dialog');
   await expect(dialog).toBeVisible();
   await expect(dialog.getByTestId('builder-chip')).toHaveCount(3);
@@ -116,7 +117,7 @@ test('picks secondary pool relics for the open plan; plans open and save from th
   await expect(dialog).toBeHidden();
   await expect(page.getByTestId('picks-rnp-message')).toContainText('Added the combo to your plan');
   // Now wanted: it becomes a pick, and the plan is marked changed (also in the top bar).
-  await expect(page.getByTestId('godroll-row')).toHaveCount(0);
+  await expect(page.getByTestId('roll-row')).toHaveCount(0);
   await expect(page.getByTestId('pick-row')).toHaveCount(2);
   await expect(page.getByTestId('rnp-status')).toContainText('(changed) · 2 need(s)');
 
@@ -130,7 +131,7 @@ test('picks secondary pool relics for the open plan; plans open and save from th
   await expect(page.getByTestId('picks-summary')).toContainText('take 2 relic(s)');
 
   // Combos added here go to it; Save from the top bar (an .rsp: asks for a new .rnp file).
-  await page.getByTestId('godroll-row').getByTestId('copy-to-builder').click();
+  await page.getByTestId('roll-row').getByTestId('copy-to-builder').click();
   await page.getByTestId('picks-combo-dialog').getByTestId('group-combo-effect').press('Enter');
   await expect(page.getByTestId('rnp-status')).toContainText('plan.rsp (changed) · 2 need(s)');
   await page.getByTestId('rnp-save').click();

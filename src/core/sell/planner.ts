@@ -74,7 +74,8 @@ const SPARE_RISK: Record<Importance, number> = {
 export const CURSE_VALUE: Record<CursePenalty, number> = { fine: 0, annoying: 0.5, dealbreaker: 1 };
 const EPS = 1e-9;
 
-export type SellFlag = 'godroll' | 'stackingUnknown';
+/** `godroll`: 3 good attributes together; `goodRoll`: 2 (see `RollQuality`). */
+export type SellFlag = 'godroll' | 'goodRoll' | 'stackingUnknown';
 
 /** Why a relic can go (in the order the planner takes them). */
 export type Verdict = 'unwanted' | 'covered' | 'spares' | 'review';
@@ -769,7 +770,11 @@ export function planSell(
       continue;
     }
     const flags: SellFlag[] = [];
-    if (unit.godroll) flags.push('godroll');
+    if (unit.godroll) {
+      flags.push(
+        goodAttributes(unit.spec, index, config, ignoredFamilies) >= 3 ? 'godroll' : 'goodRoll',
+      );
+    }
     if (unit.stackingUnknown) flags.push('stackingUnknown');
     lines.set(lineKey, {
       spec: unit.spec,
@@ -854,19 +859,22 @@ export function planSell(
 }
 
 /**
- * Flag-only heuristic for relics the config doesn't cover: every slot (3 on a
- * 3-slot relic, 2 on a 2-slot one) holds an effect at the top level of its
- * leveled family, all from different families, none ignored on purpose, and
- * no dealbreaker curse.
+ * Terminology (owner): a **godroll** is a relic with 3 good attributes together, a **good roll** one
+ * with 2. A good attribute, as the tool can tell, is an effect at the top level of its leveled
+ * family (e.g. Physical Attack Up +4); effects from the same family, families ignored on purpose
+ * and relics with a dealbreaker curse don't count.
  */
-export function looksLikeGodroll(
+export type RollQuality = 'godroll' | 'goodRoll';
+
+/** How many good attributes the relic has together (see `RollQuality`); 0 with a dealbreaker. */
+export function goodAttributes(
   spec: RelicSpec,
   index: EffectIndex,
   config: SellConfig,
   ignoredFamilies: ReadonlySet<string> = new Set(),
-): boolean {
+): number {
   for (const curse of spec.curses) {
-    if (curse !== null && cursePenalty(config, undefined, curse) === 'dealbreaker') return false;
+    if (curse !== null && cursePenalty(config, undefined, curse) === 'dealbreaker') return 0;
   }
   const top = new Set<string>();
   for (const id of spec.effects) {
@@ -877,8 +885,33 @@ export function looksLikeGodroll(
     const max = Math.max(...levels.map((m) => m.level));
     if (new Set(levels.map((m) => m.level)).size >= 2 && meta.level === max) top.add(meta.family);
   }
+  return top.size;
+}
+
+/** Godroll (3 good attributes), good roll (2), or neither. */
+export function rollQuality(
+  spec: RelicSpec,
+  index: EffectIndex,
+  config: SellConfig,
+  ignoredFamilies?: ReadonlySet<string>,
+): RollQuality | null {
+  const good = goodAttributes(spec, index, config, ignoredFamilies);
+  return good >= 3 ? 'godroll' : good === 2 ? 'goodRoll' : null;
+}
+
+/**
+ * Sell Planner's review flag for relics the config doesn't cover: every slot holds a good
+ * attribute (3 on a 3-slot relic: a godroll; 2 on a 2-slot one: a good roll).
+ */
+export function looksLikeGodroll(
+  spec: RelicSpec,
+  index: EffectIndex,
+  config: SellConfig,
+  ignoredFamilies: ReadonlySet<string> = new Set(),
+): boolean {
+  const good = goodAttributes(spec, index, config, ignoredFamilies);
   const slots = rollRules().slotCount(spec.itemId) || spec.effects.filter((e) => e !== null).length;
-  return top.size >= 2 && top.size >= Math.min(3, slots);
+  return good >= 2 && good >= Math.min(3, slots);
 }
 
 /** "Group › " for needs from older plans' named groups; nothing for the one list. */

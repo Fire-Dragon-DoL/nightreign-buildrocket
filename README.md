@@ -63,7 +63,7 @@ Primary Save File:
 - **Needs & combos:** one list of single effects and combos (effects wanted on the same
   relic). Effects that stack with themselves accept lower levels by default; the highest
   you own is kept first. Plans from older versions with several groups still load.
-  A combo is effects you want on the **same** relic (a godroll); relics with
+  A combo is effects you want on the **same** relic; relics with
   more effects match too, partial matches are weak backups. Each combo member
   (and each single effect) can accept lower levels ("Physical Attack Up +1 or
   higher"); higher levels are kept first. A need's _Relics_ setting says
@@ -80,8 +80,9 @@ relic you can sell, grouped by Deep/normal, color and
 size, from risk 0 (safe) to 99, with why it's safe or what it would hurt, and
 a suggested in-game search per group. Selling everything up to a given risk
 is safe in the order shown. Relics the game won't let you sell aren't listed
-but still count toward your needs. Relics nothing in your plan wants but that
-look rare are flagged _possible godroll_.
+but still count toward your needs. Relics nothing in your plan wants whose every
+slot holds a good attribute are flagged _possible godroll_ (3 slots) or _possible
+good roll_ (2 slots) and kept for review.
 
 **Secondary Pool Picks:** the Primary Save File is the pool you play on
 (_Relic Pool_); open another one (another character, or a friend's save or
@@ -100,14 +101,28 @@ lower levels are backups, relics the game won't sell count too), it lists:
   picks, wanted). Needs the Secondary Pool can't fill either stay marked short.
 - **Upgrades:** available relics better than a copy your Relic Pool counts for a
   need that is already met: a higher level, or the same levels with milder curses.
-- **Possible godrolls:** relics your plan doesn't mention that look rare, unless
-  your Relic Pool has the same relic.
+- **Possible godrolls and good rolls:** relics your plan doesn't mention with 3
+  good attributes together (godroll) or 2 (good roll), unless your Relic Pool
+  has the same relic. Godrolls first.
 
 Unique relics your Relic Pool already has are skipped. _Export CSV_ writes the
 three lists with names and ids.
 _Export CSV_ writes the list sorted by risk.
 
 Only PC saves are supported for now.
+
+## Terms
+
+- **Good attribute:** a strong effect. As far as the tool can tell from the game
+  data, an effect at the top level of its family (e.g. Physical Attack Up +4,
+  not +3); relics with a curse you call a dealbreaker don't count.
+- **Godroll:** a relic with **3** good attributes together.
+- **Good roll:** a relic with **2** good attributes together.
+- **Combo:** effects you want on the same relic (Needs Config).
+- **Relic Needs Plan (`.rnp`):** what you want to keep: effects, combos, copies.
+- **Primary / Secondary Save File:** a save or builds file (`.jsl2`); the primary
+  one is used by every page, a secondary one by Relics Diff and Secondary Pool
+  Picks.
 
 ## Tech stack
 

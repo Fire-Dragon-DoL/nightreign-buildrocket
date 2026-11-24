@@ -173,8 +173,16 @@ describe('Secondary Pool Picks', () => {
   it('flags possible godrolls the plan does not mention, unless the Relic Pool has one', () => {
     const god = relic(RED, [VIGOR_3, STR_3, DEX_3]);
     const r = pickFromSecondary([relic(RED, [STR_1])], [god, god], emptyConfig());
-    expect(r.godrolls).toEqual([expect.objectContaining({ count: 2, available: 2 })]);
-    expect(pickFromSecondary([god], [god], emptyConfig()).godrolls).toEqual([]);
+    expect(r.rolls).toEqual([expect.objectContaining({ count: 2, available: 2, roll: 'godroll' })]);
+    expect(pickFromSecondary([god], [god], emptyConfig()).rolls).toEqual([]);
+  });
+
+  it('calls 2 good attributes together a good roll, after the godrolls', () => {
+    const good = relic(RED, [VIGOR_3, STR_3, MAGIC_1]);
+    const god = relic(RED, [VIGOR_3, STR_3, DEX_3]);
+    const r = pickFromSecondary([relic(RED, [STR_1])], [good, god], emptyConfig());
+    expect(r.rolls.map((e) => e.roll)).toEqual(['godroll', 'goodRoll']);
+    expect(picksToCsv(r)).toContain('possible good roll');
   });
 
   it('exports every list as CSV', () => {

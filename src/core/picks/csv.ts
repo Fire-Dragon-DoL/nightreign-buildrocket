@@ -44,7 +44,7 @@ function relicColumns(spec: RelicSpec): (string | number)[] {
   ];
 }
 
-/** Picks, then upgrades, then possible godrolls, names next to ids (UTF-8 BOM, CRLF). */
+/** Picks, upgrades, then possible godrolls / good rolls, names next to ids (UTF-8 BOM, CRLF). */
 export function picksToCsv(result: PicksResult): string {
   const rows = [
     ...result.picks.map((e) => [
@@ -61,12 +61,12 @@ export function picksToCsv(result: PicksResult): string {
       ...relicColumns(e.spec),
       e.reason,
     ]),
-    ...result.godrolls.map((e) => [
-      'possible godroll',
+    ...result.rolls.map((e) => [
+      e.roll === 'godroll' ? 'possible godroll' : 'possible good roll',
       e.count,
       e.available,
       ...relicColumns(e.spec),
-      'Not in your plan, but every slot is a top-level effect: review it',
+      `Not in your plan, but ${e.roll === 'godroll' ? '3' : '2'} good attributes together (top-level effects): review it`,
     ]),
   ];
   return toCsv([HEADER, ...rows]);

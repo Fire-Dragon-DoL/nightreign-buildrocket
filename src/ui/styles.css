@@ -1157,3 +1157,8 @@ tr.need-row--drop-below > td {
 .window-drop__toast--error {
   border-color: var(--red);
 }
+
+.flag--goodRoll {
+  color: var(--green);
+  border-color: var(--green);
+}

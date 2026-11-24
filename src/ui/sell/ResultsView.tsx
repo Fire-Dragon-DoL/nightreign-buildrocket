@@ -41,7 +41,11 @@ function OwnedLeft({ counts }: { counts: { owned: number; left: number }[] }) {
   );
 }
 
-const FLAG_LABELS = { godroll: 'Possible godroll', stackingUnknown: 'Stacking unknown' } as const;
+const FLAG_LABELS = {
+  godroll: 'Possible godroll',
+  goodRoll: 'Possible good roll',
+  stackingUnknown: 'Stacking unknown',
+} as const;
 
 /** Risk bands for color: safe, worth a look, risky. */
 const riskClass = (risk: number) =>

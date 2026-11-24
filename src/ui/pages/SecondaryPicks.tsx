@@ -51,7 +51,8 @@ const relicsOf = (c: {
 
 /**
  * Secondary Pool Picks: relics of a second pool (another character or save) that fill what the
- * Relic Pool lacks for a sell plan's needs and combos, plus upgrades and possible godrolls.
+ * Relic Pool lacks for a sell plan's needs and combos, plus upgrades and possible godrolls / good
+ * rolls.
  */
 export function SecondaryPicks() {
   const mainSource = usePrimarySource();
@@ -120,7 +121,7 @@ export function SecondaryPicks() {
       const name = `nightreign-picks-${fileSafe(secondaryChar?.name ?? '') || 'secondary'}-for-${fileSafe(mainChar?.name ?? '') || 'pool'}.csv`;
       await saveTextFile(picksToCsv(run.result), name, CSV_FILE_TYPE);
       const r = run.result;
-      setMessage(`Exported ${r.picks.length + r.upgrades.length + r.godrolls.length} lines.`);
+      setMessage(`Exported ${r.picks.length + r.upgrades.length + r.rolls.length} lines.`);
     } catch (err) {
       if (!isAbortError(err)) setMessage(`Export failed: ${(err as Error).message}`);
     }
@@ -140,7 +141,8 @@ export function SecondaryPicks() {
         Relic Pool is short of get the <b>fewest</b> available relics that fill them, with the same
         rules as the Sell Planner (colors must match, dealbreaker curses don't count, lower levels
         are backups). Below that: <b>upgrades</b> (better than a copy you count) and{' '}
-        <b>possible godrolls</b> your plan doesn't mention.
+        <b>possible godrolls</b> (3 good attributes together) and <b>good rolls</b> (2) your plan
+        doesn't mention.
       </p>
       <section className="loaders">
         <FileSourcePicker
@@ -227,7 +229,9 @@ function PicksView({
     ) : null;
   const taken = result.picks.reduce((n, p) => n + p.count, 0);
   const stillShort = result.needs.filter((n) => n.after + 1e-9 < n.want);
-  const any = result.picks.length + result.upgrades.length + result.godrolls.length > 0;
+  const any = result.picks.length + result.upgrades.length + result.rolls.length > 0;
+  const godrolls = result.rolls.filter((e) => e.roll === 'godroll').length;
+  const goodRolls = result.rolls.length - godrolls;
   return (
     <section className="builds-section">
       <div className="toolbar">
@@ -235,10 +239,14 @@ function PicksView({
           {result.needs.length === 0
             ? 'Your Relic Pool already has everything your plan wants.'
             : `${result.needs.length} need(s) short in your Relic Pool; take ${taken} relic(s) to fill ${result.needs.length - stillShort.length} of them.`}{' '}
-          {result.upgrades.length} upgrade(s), {result.godrolls.length} possible godroll(s) (
-          {Math.round(ms)} ms).
+          {result.upgrades.length} upgrade(s), {godrolls} possible godroll(s), {goodRolls} good
+          roll(s) ({Math.round(ms)} ms).
         </span>
-        {empty && <span className="warning">Your plan is empty: only godrolls can show up.</span>}
+        {empty && (
+          <span className="warning">
+            Your plan is empty: only godrolls and good rolls can show up.
+          </span>
+        )}
         <div className="toolbar__spacer" />
         {message && (
           <span className="message" data-testid="message">
@@ -394,12 +402,13 @@ function PicksView({
         </article>
       )}
 
-      {result.godrolls.length > 0 && (
-        <article className="build sell-section" data-testid="picks-godrolls">
+      {result.rolls.length > 0 && (
+        <article className="build sell-section" data-testid="picks-rolls">
           <header className="build__header">
-            <span className="build__name">Possible godrolls</span>{' '}
+            <span className="build__name">Possible godrolls and good rolls</span>{' '}
             <span className="muted">
-              — not in your plan, but every slot is a top-level effect: review them
+              — not in your plan, but with good attributes (top-level effects) together: 3 make a
+              godroll, 2 a good roll. Review them.
             </span>
           </header>
           <table className="build__relics">
@@ -407,16 +416,22 @@ function PicksView({
               <tr>
                 <th>Relic</th>
                 <th>Effects</th>
+                <th>Roll</th>
                 <th>Available</th>
               </tr>
             </thead>
             <tbody>
-              {result.godrolls.map((e) => (
-                <tr key={e.key} data-testid="godroll-row">
+              {result.rolls.map((e) => (
+                <tr key={e.key} data-testid="roll-row">
                   <RelicCell relic={e.spec} />
                   <td>
                     <RelicEffects relic={e.spec} />
                     {copy(e.spec)}
+                  </td>
+                  <td>
+                    <span className={`flag flag--${e.roll}`} data-testid="roll-kind">
+                      {e.roll === 'godroll' ? 'Godroll (3 good)' : 'Good roll (2 good)'}
+                    </span>
                   </td>
                   <td className="missing__copies">{e.count}</td>
                 </tr>

@@ -27,10 +27,14 @@ const VERDICTS = {
   unwanted: 'nothing wanted',
   covered: 'covered',
   spares: 'spares left',
-  review: 'review (possible godroll)',
+  review: 'review (possible godroll or good roll)',
 } as const;
 
-const FLAG_LABELS = { godroll: 'possible godroll', stackingUnknown: 'stacking unknown' } as const;
+const FLAG_LABELS = {
+  godroll: 'possible godroll',
+  goodRoll: 'possible good roll',
+  stackingUnknown: 'stacking unknown',
+} as const;
 
 /** The sell list as CSV, safest first, names next to ids (UTF-8 BOM, CRLF). */
 export function sellPlanToCsv(plan: SellPlan): string {

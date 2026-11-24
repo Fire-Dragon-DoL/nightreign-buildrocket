@@ -18,8 +18,9 @@
  * - Upgrades: Secondary relics better than a copy the Relic Pool counts for a
  *   need that is already met (every effect at the same or a higher level and
  *   one higher, or the same levels with milder curses).
- * - Possible godrolls: Secondary relics the plan doesn't want that look rare
- *   (same heuristic as the Sell Planner), unless the Relic Pool has the same relic.
+ * - Possible godrolls and good rolls: Secondary relics the plan doesn't want with 3 good attributes
+ *   together (godroll) or 2 (good roll), see `RollQuality`, unless the Relic Pool has the same relic.
+ *   Godrolls first.
  * A unique relic (one the game won't sell) the Relic Pool already has is skipped.
  */
 import type { RelicSpec } from '../builds/builds.ts';
@@ -38,8 +39,9 @@ import {
   CURSE_VALUE,
   coverage,
   IMPORTANCE_WEIGHT,
-  looksLikeGodroll,
   type PoolModel,
+  type RollQuality,
+  rollQuality,
   type Unit,
 } from '../sell/planner.ts';
 
@@ -109,11 +111,14 @@ export interface UpgradeEntry {
   reason: string;
 }
 
-export interface GodrollEntry {
+/** A relic with good attributes together that the plan doesn't mention. */
+export interface RollEntry {
   spec: RelicSpec;
   key: string;
   count: number;
   available: number;
+  /** Godroll: 3 good attributes together; good roll: 2. */
+  roll: RollQuality;
 }
 
 /** A need the Relic Pool is short of. */
@@ -131,7 +136,8 @@ export interface PickNeed {
 export interface PicksResult {
   picks: PickEntry[];
   upgrades: UpgradeEntry[];
-  godrolls: GodrollEntry[];
+  /** Possible godrolls, then possible good rolls. */
+  rolls: RollEntry[];
   /** Needs the Relic Pool is short of, with and without the picks. */
   needs: PickNeed[];
   /** Secondary relics skipped: unique relics the Relic Pool already has. */
@@ -426,19 +432,21 @@ export function pickFromSecondary(
       b.better.length - a.better.length,
   );
 
-  // Possible godrolls the plan doesn't mention.
-  const godrollLines = new Map<string, GodrollEntry>();
+  // Possible godrolls and good rolls the plan doesn't mention.
+  const rollLines = new Map<string, RollEntry>();
   for (const u of sec) {
     if (pickedSet.has(u) || u.contributions.length > 0 || mainLooks.has(lookKey(u.spec))) continue;
-    if (!looksLikeGodroll(u.spec, index, config, model.ignoredFamilies)) continue;
-    const line = godrollLines.get(u.key);
+    const roll = rollQuality(u.spec, index, config, model.ignoredFamilies);
+    if (!roll) continue;
+    const line = rollLines.get(u.key);
     if (line) line.count++;
     else
-      godrollLines.set(u.key, {
+      rollLines.set(u.key, {
         spec: u.spec,
         key: u.key,
         count: 1,
         available: available.get(u.key) ?? 1,
+        roll,
       });
   }
 
@@ -460,7 +468,9 @@ export function pickFromSecondary(
   return {
     picks,
     upgrades,
-    godrolls: [...godrollLines.values()],
+    rolls: [...rollLines.values()].sort(
+      (a, b) => Number(b.roll === 'godroll') - Number(a.roll === 'godroll'),
+    ),
     needs,
     skippedUnique,
     shared,
