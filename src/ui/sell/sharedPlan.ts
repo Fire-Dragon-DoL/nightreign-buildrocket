@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { emptyConfig, type SellConfig } from '../../core/sell/config.ts';
+import type { ConfigUpdate } from './configEdit.ts';
 
 /** The plan open in the Sell Planner, shared with pages that use it (in memory only). */
 export interface SharedPlan {
@@ -7,6 +8,8 @@ export interface SharedPlan {
   /** File name, null when never saved. */
   name: string | null;
   dirty: boolean;
+  /** Change the plan in the Sell Planner (marks it changed there). */
+  update?: ConfigUpdate;
 }
 
 let current: SharedPlan = { config: emptyConfig(), name: null, dirty: false };

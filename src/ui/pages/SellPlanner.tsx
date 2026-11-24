@@ -76,15 +76,15 @@ export function SellPlanner() {
     [],
   );
 
-  // Secondary Pool Picks can use the plan open here.
-  useEffect(() => {
-    publishSellPlan({ config, name: configFile?.name ?? null, dirty });
-  }, [config, configFile, dirty]);
-
   const update: ConfigUpdate = useCallback((fn) => {
     setConfig((c) => fn(c));
     setDirty(true);
   }, []);
+
+  // Secondary Pool Picks can use (and add combos to) the plan open here.
+  useEffect(() => {
+    publishSellPlan({ config, name: configFile?.name ?? null, dirty, update });
+  }, [config, configFile, dirty, update]);
 
   const defaults = useMemo(() => buildEffectIndex(), []);
   const index = useMemo(

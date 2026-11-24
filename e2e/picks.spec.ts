@@ -104,6 +104,19 @@ test('picks secondary pool relics for the sell plan, from the planner or a file'
   await expect(page.getByTestId('message')).toContainText('Exported 2 lines');
   expect((await lastWritten(page)).startsWith('﻿List,Take,Available,Relic,')).toBe(true);
 
+  // Add the godroll as a combo to the Sell Planner's plan from here, in the popup.
+  await page.getByTestId('godroll-row').getByTestId('copy-to-builder').click();
+  const dialog = page.getByTestId('picks-combo-dialog');
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByTestId('builder-chip')).toHaveCount(3);
+  await dialog.getByTestId('group-combo-effect').press('Enter');
+  await expect(dialog).toBeHidden();
+  await expect(page.getByTestId('picks-rsp-message')).toContainText("Sell Planner's plan");
+  // Now wanted: it becomes a pick, and the planner's plan is marked changed.
+  await expect(page.getByTestId('godroll-row')).toHaveCount(0);
+  await expect(page.getByTestId('pick-row')).toHaveCount(2);
+  await expect(page.getByTestId('picks-plan')).toContainText('(changed) · 2 need(s)');
+
   // Another plan: clear the planner's, then load the saved one here.
   await page.getByRole('link', { name: 'Sell Planner' }).click();
   await page.getByRole('button', { name: 'New', exact: true }).click();
@@ -113,4 +126,13 @@ test('picks secondary pool relics for the sell plan, from the planner or a file'
   await page.getByTestId('picks-rsp-input').setInputFiles(await writeTemp('plan.rsp', rsp));
   await expect(page.getByTestId('picks-rsp-message')).toContainText('Loaded plan.rsp');
   await expect(page.getByTestId('picks-summary')).toContainText('take 2 relic(s)');
+
+  // Combos added here go to the loaded plan, which can be saved from this page.
+  await page.getByTestId('godroll-row').getByTestId('copy-to-builder').click();
+  await page.getByTestId('picks-combo-dialog').getByTestId('group-combo-effect').press('Enter');
+  await expect(page.getByTestId('picks-rsp-message')).toContainText('Added the combo to plan.rsp');
+  await expect(page.getByTestId('picks-plan')).toContainText('plan.rsp (changed) · 2 need(s)');
+  await page.getByTestId('picks-rsp-save').click();
+  await expect(page.getByTestId('picks-rsp-message')).toContainText('Saved plan.rsp');
+  expect(JSON.parse(await lastWritten(page)).groups[0].needs).toHaveLength(2);
 });

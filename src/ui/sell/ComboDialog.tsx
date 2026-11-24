@@ -12,10 +12,18 @@ interface Props {
   /** Add the combo to the plan (the dialog then closes). */
   onSubmit: (draft: ComboNeed) => void;
   onClose: () => void;
+  testId?: string;
 }
 
 /** The combo builder in a popup, so the page behind (the results) keeps its place. */
-export function ComboDialog({ builder, setBuilder, index, onSubmit, onClose }: Props) {
+export function ComboDialog({
+  builder,
+  setBuilder,
+  index,
+  onSubmit,
+  onClose,
+  testId = 'combo-dialog',
+}: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const open = builder !== null;
 
@@ -36,7 +44,7 @@ export function ComboDialog({ builder, setBuilder, index, onSubmit, onClose }: P
     <dialog
       ref={dialog}
       className="combo-dialog"
-      data-testid="combo-dialog"
+      data-testid={testId}
       onCancel={(e) => {
         e.preventDefault();
         onClose();

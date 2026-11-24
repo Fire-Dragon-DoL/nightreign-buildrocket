@@ -1,17 +1,35 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { RelicSpec } from '../../core/builds/builds.ts';
 import { relicsOfBuilds } from '../../core/compare/missing.ts';
 import { picksToCsv } from '../../core/picks/csv.ts';
 import type { PickFill, PicksResult } from '../../core/picks/picks.ts';
-import { DEFAULT_GROUP, IMPORTANCE_LABELS, type SellConfig } from '../../core/sell/config.ts';
-import { parseRsp } from '../../core/sell/rsp.ts';
-import { CSV_FILE_TYPE, isAbortError, saveTextFile } from '../../storage/files.ts';
+import {
+  type ComboNeed,
+  DEFAULT_GROUP,
+  effectiveRules,
+  IMPORTANCE_LABELS,
+  type SellConfig,
+} from '../../core/sell/config.ts';
+import { buildEffectIndex } from '../../core/sell/effects.ts';
+import { withDefaultLevels } from '../../core/sell/needs.ts';
+import { parseRsp, serializeRsp } from '../../core/sell/rsp.ts';
+import {
+  CSV_FILE_TYPE,
+  ensureWritable,
+  isAbortError,
+  RSP_FILE_TYPE,
+  saveTextFile,
+  writeTextFile,
+} from '../../storage/files.ts';
 import { saveWorker } from '../../worker/client.ts';
 import { FileDrop } from '../components/FileDrop.tsx';
 import { FileSourcePicker } from '../components/FileSourcePicker.tsx';
 import { ProgressBar } from '../components/ProgressBar.tsx';
 import { RelicCell, RelicEffects } from '../components/RelicParts.tsx';
 import { fileSafe } from '../fileSafe.ts';
+import { type Builder, builderFromRelic } from '../sell/builder.ts';
+import { ComboDialog } from '../sell/ComboDialog.tsx';
+import { addNeeds } from '../sell/configEdit.ts';
 import { useSellPlannerPlan } from '../sell/sharedPlan.ts';
 import { RelicRef } from '../sell/WhyCell.tsx';
 import { useLoadedFile } from '../useLoadedFile.ts';
@@ -61,18 +79,73 @@ export function SecondaryPicks() {
 
   const shared = useSellPlannerPlan();
   const [planSource, setPlanSource] = useState<PlanSource>('planner');
-  const [filePlan, setFilePlan] = useState<{ name: string; config: SellConfig } | null>(null);
+  const [filePlan, setFilePlan] = useState<{
+    name: string;
+    config: SellConfig;
+    dirty: boolean;
+    handle?: FileSystemFileHandle;
+  } | null>(null);
   const [planMessage, setPlanMessage] = useState<string | null>(null);
   const config = planSource === 'planner' ? shared.config : (filePlan?.config ?? null);
 
   const openPlan = async (file: File) => {
     try {
       const parsed = parseRsp(await file.text());
-      setFilePlan({ name: file.name, config: parsed.config });
+      setFilePlan({ name: file.name, config: parsed.config, dirty: false });
       setPlanSource('file');
       setPlanMessage([`Loaded ${file.name}.`, ...parsed.warnings].join(' '));
     } catch (err) {
       setPlanMessage(`Could not load ${file.name}: ${(err as Error).message}`);
+    }
+  };
+
+  // Combos added from the results go into the plan in use.
+  const index = useMemo(
+    () => (config ? buildEffectIndex(effectiveRules(config.effectRules)) : null),
+    [config],
+  );
+  const [popup, setPopup] = useState<Builder | null>(null);
+  const setPopupBuilder = useCallback(
+    (fn: (b: Builder) => Builder) => setPopup((p) => (p ? fn(p) : p)),
+    [],
+  );
+  const copyToBuilder = useMemo(
+    () =>
+      index && (planSource === 'file' || shared.update)
+        ? (spec: RelicSpec) => setPopup(builderFromRelic(spec, index, 1))
+        : undefined,
+    [index, planSource, shared.update],
+  );
+  const addCombo = (draft: ComboNeed) => {
+    if (!index) return;
+    const add = (c: SellConfig) => addNeeds(c, [withDefaultLevels(draft, index)]);
+    if (planSource === 'planner') {
+      shared.update?.((c) => add(c).config);
+      setPlanMessage("Added the combo to the Sell Planner's plan (save it there to keep it).");
+    } else if (filePlan) {
+      setFilePlan({ ...filePlan, config: add(filePlan.config).config, dirty: true });
+      setPlanMessage(`Added the combo to ${filePlan.name}.`);
+    }
+    setPopup(null);
+  };
+
+  const saveFilePlan = async () => {
+    if (!filePlan) return;
+    const text = serializeRsp(filePlan.config);
+    try {
+      let name = filePlan.name;
+      let handle = filePlan.handle;
+      if (handle && (await ensureWritable(handle))) await writeTextFile(handle, text);
+      else {
+        handle =
+          (await saveTextFile(text, name.endsWith('.rsp') ? name : `${name}.rsp`, RSP_FILE_TYPE)) ??
+          undefined;
+        name = handle?.name ?? name;
+      }
+      setFilePlan({ ...filePlan, name, dirty: false, ...(handle ? { handle } : {}) });
+      setPlanMessage(`Saved ${name}.`);
+    } catch (err) {
+      if (!isAbortError(err)) setPlanMessage(`Save failed: ${(err as Error).message}`);
     }
   };
 
@@ -165,11 +238,16 @@ export function SecondaryPicks() {
             <span className="muted">
               (
               {filePlan
-                ? `${filePlan.name} · ${needCount(filePlan.config)} need(s)`
+                ? `${filePlan.name}${filePlan.dirty ? ' (changed)' : ''} · ${needCount(filePlan.config)} need(s)`
                 : 'none loaded'}
               )
             </span>
           </label>
+          {planSource === 'file' && filePlan?.dirty && (
+            <button type="button" onClick={() => void saveFilePlan()} data-testid="picks-rsp-save">
+              Save plan
+            </button>
+          )}
         </div>
         {planSource === 'file' && (
           <FileDrop
@@ -207,6 +285,17 @@ export function SecondaryPicks() {
           empty={needCount(config) === 0}
           message={message}
           onExport={exportCsv}
+          onCopyToBuilder={copyToBuilder}
+        />
+      )}
+      {index && (
+        <ComboDialog
+          builder={popup}
+          setBuilder={setPopupBuilder}
+          index={index}
+          onClose={() => setPopup(null)}
+          onSubmit={addCombo}
+          testId="picks-combo-dialog"
         />
       )}
     </>
@@ -219,13 +308,28 @@ function PicksView({
   empty,
   message,
   onExport,
+  onCopyToBuilder,
 }: {
   result: PicksResult;
   ms: number;
   empty: boolean;
   message: string | null;
   onExport: () => void;
+  /** Open the combo builder with this relic's effects (undefined: no plan to add to). */
+  onCopyToBuilder?: ((spec: RelicSpec) => void) | undefined;
 }) {
+  const copy = (spec: RelicSpec) =>
+    onCopyToBuilder && spec.effects.some((e) => e !== null) ? (
+      <button
+        type="button"
+        className="button--quiet copy-to-builder"
+        data-testid="copy-to-builder"
+        title="Open the combo builder with this relic's effects"
+        onClick={() => onCopyToBuilder(spec)}
+      >
+        Copy relic to builder
+      </button>
+    ) : null;
   const taken = result.picks.reduce((n, p) => n + p.count, 0);
   const stillShort = result.needs.filter((n) => n.after + 1e-9 < n.want);
   const any = result.picks.length + result.upgrades.length + result.godrolls.length > 0;
@@ -325,6 +429,7 @@ function PicksView({
                   <RelicCell relic={e.spec} />
                   <td>
                     <RelicEffects relic={e.spec} />
+                    {copy(e.spec)}
                   </td>
                   <td className="missing__copies">
                     {e.count} of {e.available}
@@ -369,6 +474,7 @@ function PicksView({
                   <RelicCell relic={e.spec} />
                   <td>
                     <RelicEffects relic={e.spec} />
+                    {copy(e.spec)}
                   </td>
                   <td className="missing__copies">{e.available}</td>
                   <td className="why-cell">
@@ -411,6 +517,7 @@ function PicksView({
                   <RelicCell relic={e.spec} />
                   <td>
                     <RelicEffects relic={e.spec} />
+                    {copy(e.spec)}
                   </td>
                   <td className="missing__copies">{e.count}</td>
                 </tr>
