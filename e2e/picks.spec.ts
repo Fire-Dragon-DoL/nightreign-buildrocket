@@ -69,13 +69,14 @@ test.beforeAll(() => {
   if (!existsSync(APP)) throw new Error('dist/index.html is missing: run `pnpm build` first.');
 });
 
-test('picks secondary pool relics for the sell plan, from the planner or a file', async ({
+test('picks secondary pool relics for the open plan; plans open and save from the top bar', async ({
   page,
 }) => {
   await stubSavePicker(page);
   await page.goto(SELL_URL);
 
-  // In the Sell Planner: must keep 3 Magic Attack +2.
+  // In Needs Config: must keep 3 Magic Attack +2.
+  await page.getByTestId('menu-needs').click();
   await page.getByTestId('tab-normal').click();
   await page.getByTestId('normal-search').fill('Magic Attack Power Up +2');
   const row = page.getByTestId('effect-row').filter({ hasText: 'Magic Attack Power Up +2' });
@@ -85,7 +86,7 @@ test('picks secondary pool relics for the sell plan, from the planner or a file'
   await expect(page.getByTestId('rnp-message')).toContainText('Saved');
   const rsp = await lastWritten(page);
 
-  await page.getByRole('link', { name: 'Secondary Pool Picks' }).click();
+  await page.getByLabel('Pages').getByRole('link', { name: 'Secondary Pool Picks' }).click();
   const file = await save();
   await page.getByTestId('picks-main-input').setInputFiles(file);
   await page.getByTestId('picks-secondary-input').setInputFiles(file);
@@ -93,7 +94,7 @@ test('picks secondary pool relics for the sell plan, from the planner or a file'
   await page.getByTestId('picks-secondary-character').selectOption({ index: 1 });
 
   // The Relic Pool has 1 of 3 red Magic +2: take 2 of Alt's 3, and flag the godroll.
-  await expect(page.getByTestId('picks-plan-planner')).toBeChecked();
+  await expect(page.getByTestId('picks-plan')).toContainText('1 need(s)');
   await expect(page.getByTestId('picks-summary')).toContainText('take 2 relic(s)');
   await expect(page.getByTestId('pick-row')).toHaveCount(1);
   await expect(page.getByTestId('pick-row')).toContainText('2 of 2');
@@ -106,37 +107,37 @@ test('picks secondary pool relics for the sell plan, from the planner or a file'
   await expect(page.getByTestId('message')).toContainText('Exported 2 lines');
   expect((await lastWritten(page)).startsWith('﻿List,Take,Available,Relic,')).toBe(true);
 
-  // Add the godroll as a combo to the Sell Planner's plan from here, in the popup.
+  // Add the godroll as a combo to the open plan from here, in the popup.
   await page.getByTestId('godroll-row').getByTestId('copy-to-builder').click();
   const dialog = page.getByTestId('picks-combo-dialog');
   await expect(dialog).toBeVisible();
   await expect(dialog.getByTestId('builder-chip')).toHaveCount(3);
   await dialog.getByTestId('group-combo-effect').press('Enter');
   await expect(dialog).toBeHidden();
-  await expect(page.getByTestId('picks-rnp-message')).toContainText("Sell Planner's plan");
-  // Now wanted: it becomes a pick, and the planner's plan is marked changed.
+  await expect(page.getByTestId('picks-rnp-message')).toContainText('Added the combo to your plan');
+  // Now wanted: it becomes a pick, and the plan is marked changed (also in the top bar).
   await expect(page.getByTestId('godroll-row')).toHaveCount(0);
   await expect(page.getByTestId('pick-row')).toHaveCount(2);
-  await expect(page.getByTestId('picks-plan')).toContainText('(changed) · 2 need(s)');
+  await expect(page.getByTestId('rnp-status')).toContainText('(changed) · 2 need(s)');
 
-  // Another plan: clear the planner's, then load the saved one here.
-  await page.getByRole('link', { name: 'Sell Planner' }).click();
-  // It has unsaved changes: New asks first.
+  // New plan from the top bar (asks first: unsaved changes), then open the saved one there.
   page.once('dialog', (d) => void d.accept());
-  await page.getByRole('button', { name: 'New', exact: true }).click();
-  await page.getByRole('link', { name: 'Secondary Pool Picks' }).click();
+  await page.getByTestId('rnp-new').click();
   await expect(page.getByTestId('picks-summary')).toContainText('already has everything');
-  await page.getByTestId('picks-plan-file').check();
-  await page.getByTestId('picks-rnp-input').setInputFiles(await writeTemp('plan.rsp', rsp));
-  await expect(page.getByTestId('picks-rnp-message')).toContainText('Loaded plan.rsp');
+  await page.getByTestId('rnp-input').setInputFiles(await writeTemp('plan.rsp', rsp));
+  await expect(page.getByTestId('rnp-message')).toContainText('Loaded plan.rsp');
+  await expect(page.getByTestId('rnp-status')).toContainText('plan.rsp · 1 need(s)');
   await expect(page.getByTestId('picks-summary')).toContainText('take 2 relic(s)');
 
-  // Combos added here go to the loaded plan, which can be saved from this page.
+  // Combos added here go to it; Save from the top bar (an .rsp: asks for a new .rnp file).
   await page.getByTestId('godroll-row').getByTestId('copy-to-builder').click();
   await page.getByTestId('picks-combo-dialog').getByTestId('group-combo-effect').press('Enter');
-  await expect(page.getByTestId('picks-rnp-message')).toContainText('Added the combo to plan.rsp');
-  await expect(page.getByTestId('picks-plan')).toContainText('plan.rsp (changed) · 2 need(s)');
-  await page.getByTestId('picks-rnp-save').click();
-  await expect(page.getByTestId('picks-rnp-message')).toContainText('Saved plan.rnp');
+  await expect(page.getByTestId('rnp-status')).toContainText('plan.rsp (changed) · 2 need(s)');
+  await page.getByTestId('rnp-save').click();
+  await expect(page.getByTestId('rnp-message')).toContainText('Saved plan.rnp');
   expect(JSON.parse(await lastWritten(page)).groups[0].needs).toHaveLength(2);
+
+  // The same plan is the Sell Planner's.
+  await page.getByLabel('Pages').getByRole('link', { name: 'Sell Planner' }).click();
+  await expect(page.getByTestId('rnp-status')).toContainText('plan.rnp · 2 need(s)');
 });

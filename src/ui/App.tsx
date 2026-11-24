@@ -1,7 +1,9 @@
 import { BuildsViewer } from './pages/BuildsViewer.tsx';
 import { MissingRelics } from './pages/MissingRelics.tsx';
+import { NeedsConfig } from './pages/NeedsConfig.tsx';
 import { SecondaryPicks } from './pages/SecondaryPicks.tsx';
 import { SellPlanner } from './pages/SellPlanner.tsx';
+import { PlanBar } from './plan/PlanBar.tsx';
 import { type Route, useHashRoute } from './useHashRoute.ts';
 
 const MENU: { route: Route; label: string }[] = [
@@ -29,6 +31,18 @@ export function App() {
             </a>
           ))}
         </nav>
+        {/* The relic needs plan is global: always here, used by the Sell Planner and Picks. */}
+        <div className="app__plan">
+          <PlanBar />
+          <a
+            href="#/needs"
+            className="menu__item menu__item--needs"
+            aria-current={route === 'needs' ? 'page' : undefined}
+            data-testid="menu-needs"
+          >
+            Needs Config
+          </a>
+        </div>
       </header>
 
       {/* Pages stay mounted (just hidden) so loaded files survive switching pages. */}
@@ -43,6 +57,9 @@ export function App() {
       </div>
       <div className="page" hidden={route !== 'picks'}>
         <SecondaryPicks />
+      </div>
+      <div className="page" hidden={route !== 'needs'}>
+        <NeedsConfig />
       </div>
 
       <footer className="app__footer muted">

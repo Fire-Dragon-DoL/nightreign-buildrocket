@@ -1,41 +1,25 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { RelicSpec } from '../../core/builds/builds.ts';
 import { relicsOfBuilds } from '../../core/compare/missing.ts';
-import { effectiveRules, emptyConfig, type SellConfig } from '../../core/sell/config.ts';
+import { effectiveRules } from '../../core/sell/config.ts';
 import { sellPlanToCsv } from '../../core/sell/csv.ts';
 import { buildEffectIndex } from '../../core/sell/effects.ts';
 import { withDefaultLevels } from '../../core/sell/needs.ts';
 import { ownedCounts } from '../../core/sell/owned.ts';
 import type { SellPlan } from '../../core/sell/planner.ts';
-import { parseRnp } from '../../core/sell/rnp.ts';
 import type { SellSection } from '../../core/sell/sections.ts';
-import { CSV_FILE_TYPE, isAbortError, PLAN_OPEN_TYPE, saveTextFile } from '../../storage/files.ts';
+import { CSV_FILE_TYPE, isAbortError, saveTextFile } from '../../storage/files.ts';
 import { saveWorker } from '../../worker/client.ts';
-import { FileDrop } from '../components/FileDrop.tsx';
 import { FileSourcePicker } from '../components/FileSourcePicker.tsx';
 import { ProgressBar } from '../components/ProgressBar.tsx';
 import { fileSafe } from '../fileSafe.ts';
-import { type Builder, builderFromRelic, emptyBuilder } from '../sell/builder.ts';
+import { needCount, updatePlan, usePlan } from '../plan/planStore.ts';
+import { publishPool } from '../plan/referencePool.ts';
+import { type Builder, builderFromRelic } from '../sell/builder.ts';
 import { ComboDialog } from '../sell/ComboDialog.tsx';
-import type { ConfigUpdate } from '../sell/configEdit.ts';
 import { addNeeds } from '../sell/configEdit.ts';
-import { EffectsTab } from '../sell/EffectsTab.tsx';
-import { GroupsTab } from '../sell/GroupsTab.tsx';
-import { canSaveInPlace, type PlanFile, savePlan, saveTargetText } from '../sell/planFile.ts';
 import { ResultsView } from '../sell/ResultsView.tsx';
-import { StackingTab } from '../sell/StackingTab.tsx';
-import { publishSellPlan } from '../sell/sharedPlan.ts';
-import { useUnsavedGuard } from '../unsaved.ts';
 import { useLoadedFile } from '../useLoadedFile.ts';
-
-type Tab = 'results' | 'normal' | 'deep' | 'groups' | 'stacking';
-const TABS: { tab: Tab; label: string }[] = [
-  { tab: 'results', label: 'Results' },
-  { tab: 'normal', label: 'Normal effects' },
-  { tab: 'deep', label: 'Deep of Night' },
-  { tab: 'groups', label: 'Needs & combos' },
-  { tab: 'stacking', label: 'Stacking' },
-];
 
 type Run =
   | { status: 'idle' }
@@ -53,33 +37,15 @@ export function SellPlanner() {
   );
   const owned = useMemo(() => (pool ? ownedCounts(pool) : null), [pool]);
 
-  const [config, setConfig] = useState<SellConfig>(emptyConfig);
-  const [configFile, setConfigFile] = useState<PlanFile | null>(null);
-  const [dirty, setDirty] = useState(false);
-  useUnsavedGuard('sell-plan', dirty);
-  const [configMessage, setConfigMessage] = useState<string | null>(null);
-  const [warnings, setWarnings] = useState<string[]>([]);
-  const [tab, setTab] = useState<Tab>('results');
-  const [builder, setBuilderState] = useState<Builder>(() => emptyBuilder());
-  const setBuilder = useCallback((fn: (b: Builder) => Builder) => setBuilderState(fn), []);
+  const { config } = usePlan();
+  // Needs Config counts owned relics and seeds builds from this pool.
+  useEffect(() => publishPool('sell', character), [character]);
   // The builder popup opened from the results (null: closed).
   const [popup, setPopup] = useState<Builder | null>(null);
   const setPopupBuilder = useCallback(
     (fn: (b: Builder) => Builder) => setPopup((p) => (p ? fn(p) : p)),
     [],
   );
-
-  const update: ConfigUpdate = useCallback((fn) => {
-    setConfig((c) => fn(c));
-    setDirty(true);
-  }, []);
-
-  // Secondary Pool Picks can use (and add combos to) the plan open here.
-  useEffect(() => {
-    publishSellPlan({ config, name: configFile?.name ?? null, dirty, update });
-  }, [config, configFile, dirty, update]);
-
-  const defaults = useMemo(() => buildEffectIndex(), []);
   const index = useMemo(
     () => buildEffectIndex(effectiveRules(config.effectRules)),
     [config.effectRules],
@@ -120,32 +86,6 @@ export function SellPlanner() {
     };
   }, [pool, config]);
 
-  const openConfig = async (file: File, handle?: FileSystemFileHandle) => {
-    if (dirty && !window.confirm('Your plan has unsaved changes. Open another plan anyway?'))
-      return;
-    try {
-      const parsed = parseRnp(await file.text());
-      setConfig(parsed.config);
-      setWarnings(parsed.warnings);
-      setConfigFile(handle ? { name: file.name, handle } : { name: file.name });
-      setDirty(false);
-      setConfigMessage(`Loaded ${file.name}.`);
-    } catch (err) {
-      setConfigMessage(`Could not load ${file.name}: ${(err as Error).message}`);
-    }
-  };
-
-  const saveConfig = async (saveAs: boolean) => {
-    try {
-      const saved = await savePlan(config, configFile, saveAs);
-      setConfigFile(saved);
-      setDirty(false);
-      setConfigMessage(`Saved ${saved.name}.`);
-    } catch (err) {
-      if (!isAbortError(err)) setConfigMessage(`Save failed: ${(err as Error).message}`);
-    }
-  };
-
   const [exportMessage, setExportMessage] = useState<string | null>(null);
   const exportCsv = async () => {
     if (run.status !== 'done') return;
@@ -158,89 +98,19 @@ export function SellPlanner() {
     }
   };
 
-  const needCount = config.groups.reduce((n, g) => n + g.needs.length, 0);
+  const needs = needCount(config);
 
   return (
     <>
       <p className="intro">
-        Find relics you can sell. Load your <b>save</b> (or a builds JSON) and a{' '}
-        <b>relic needs plan</b> (.rnp) saying what to keep, or build one here: give effects an
-        importance and copies in the <b>Normal</b> / <b>Deep of Night</b> tabs and add combos
-        (effects wanted on the same relic) in <b>Needs &amp; combos</b>. Effects you don't configure
-        are worth nothing. A relic is suggested only if everything your plan wants is still there
-        without it, and each one says why: nothing on it is wanted, a relic you keep covers it, or
-        enough copies are left. Selling everything above any line is safe in the order shown. Save
-        the plan to reuse it after your next runs.
+        Find relics you can sell. Load your <b>save</b> (or a builds JSON); what to keep comes from
+        the relic needs plan open at the top, set up in <a href="#/needs">Needs Config</a>. A relic
+        is suggested only if everything your plan wants is still there without it, and each one says
+        why: nothing on it is wanted, a relic you keep covers it, or enough copies are left. Selling
+        everything above any line is safe in the order shown.
       </p>
-      <section className="loaders loaders--pair">
+      <section className="loaders">
         <FileSourcePicker source={source} label="Relics: save or builds JSON" testId="sell" />
-        <div className="file-source">
-          <FileDrop
-            label="Open relic needs plan (.rnp)"
-            hint="A plan saved from this page (older .rsp plans open too). Optional: you can start from scratch."
-            accept=".rnp,.rsp,.json,application/json"
-            handleTypes={[PLAN_OPEN_TYPE]}
-            onFile={(file, handle) => void openConfig(file, handle)}
-            testId="rnp-input"
-          />
-          <div className="toolbar">
-            <span data-testid="rnp-status">
-              {configFile ? configFile.name : 'Unsaved plan'}
-              {dirty ? ' (changed)' : ''} · {needCount} need(s)
-            </span>
-            <div className="toolbar__spacer" />
-            {canSaveInPlace() && (
-              <button
-                type="button"
-                onClick={() => void saveConfig(false)}
-                data-testid="rnp-save"
-                title={saveTargetText(configFile)}
-              >
-                Save plan
-              </button>
-            )}
-            <button
-              type="button"
-              className={canSaveInPlace() ? 'button--quiet' : undefined}
-              onClick={() => void saveConfig(true)}
-              data-testid="rnp-save-as"
-            >
-              Save as…
-            </button>
-            <button
-              type="button"
-              className="button--quiet"
-              onClick={() => {
-                if (
-                  dirty &&
-                  !window.confirm('Your plan has unsaved changes. Start a new one anyway?')
-                ) {
-                  return;
-                }
-                setConfig(emptyConfig());
-                setConfigFile(null);
-                setWarnings([]);
-                setDirty(false);
-                setConfigMessage('Started a new plan.');
-              }}
-            >
-              New
-            </button>
-          </div>
-          <span className="muted plan-target" data-testid="rnp-target">
-            {saveTargetText(configFile)}
-          </span>
-          {configMessage && (
-            <span className="message" data-testid="rnp-message">
-              {configMessage}
-            </span>
-          )}
-          {warnings.map((w) => (
-            <span key={w} className="warning">
-              {w}
-            </span>
-          ))}
-        </div>
       </section>
 
       {character && !character.relics && (
@@ -250,99 +120,60 @@ export function SellPlanner() {
         </p>
       )}
 
-      <nav className="tabs" aria-label="Sell planner sections">
-        {TABS.map((t) => (
-          <button
-            key={t.tab}
-            type="button"
-            className="tabs__item"
-            aria-pressed={tab === t.tab}
-            data-testid={`tab-${t.tab}`}
-            onClick={() => setTab(t.tab)}
-          >
-            {t.label}
-          </button>
-        ))}
-      </nav>
-
-      {tab === 'results' && (
-        <section className="builds-section">
-          {!pool && <p className="muted">Load a save or builds JSON to see what you can sell.</p>}
-          {run.status === 'running' && !shown && (
-            <ProgressBar label="Planning…" value={run.progress} testId="sell-progress" />
-          )}
-          {run.status === 'error' && <p className="error">{run.message}</p>}
-          {shown && (
-            <>
-              <div className="toolbar">
-                <span data-testid="sell-summary">
-                  {shown.plan.sell.reduce((n, e) => n + e.count, 0)} relic(s) can be sold,{' '}
-                  {shown.plan.kept.reduce((n, k) => n + k.count, 0)} kept, {shown.plan.unsellable}{' '}
-                  can't be sold ({Math.round(shown.ms)} ms).
+      <section className="builds-section">
+        {!pool && <p className="muted">Load a save or builds JSON to see what you can sell.</p>}
+        {run.status === 'running' && !shown && (
+          <ProgressBar label="Planning…" value={run.progress} testId="sell-progress" />
+        )}
+        {run.status === 'error' && <p className="error">{run.message}</p>}
+        {shown && (
+          <>
+            <div className="toolbar">
+              <span data-testid="sell-summary">
+                {shown.plan.sell.reduce((n, e) => n + e.count, 0)} relic(s) can be sold,{' '}
+                {shown.plan.kept.reduce((n, k) => n + k.count, 0)} kept, {shown.plan.unsellable}{' '}
+                can't be sold ({Math.round(shown.ms)} ms).
+              </span>
+              {run.status === 'running' && (
+                <span className="muted" data-testid="sell-updating">
+                  Updating…
                 </span>
-                {run.status === 'running' && (
-                  <span className="muted" data-testid="sell-updating">
-                    Updating…
-                  </span>
-                )}
-                {needCount === 0 && (
-                  <span className="warning">
-                    Your plan is empty, so everything counts as safe to sell.
-                  </span>
-                )}
-                <div className="toolbar__spacer" />
-                {exportMessage && (
-                  <span className="message" data-testid="message">
-                    {exportMessage}
-                  </span>
-                )}
-                <button type="button" onClick={exportCsv} disabled={shown.plan.sell.length === 0}>
-                  Export CSV
-                </button>
-              </div>
-              <ResultsView
-                plan={shown.plan}
-                owned={owned}
-                sections={shown.sections}
-                onCopyToBuilder={(spec) => setPopup(builderFromRelic(spec, index, 1))}
-              />
-            </>
-          )}
-        </section>
-      )}
-      {(tab === 'normal' || tab === 'deep') && (
-        <EffectsTab
-          key={tab}
-          kind={tab}
-          config={config}
-          update={update}
-          index={index}
-          owned={owned}
-        />
-      )}
+              )}
+              {needs === 0 && (
+                <span className="warning">
+                  Your plan is empty, so everything counts as safe to sell: set it up in{' '}
+                  <a href="#/needs">Needs Config</a>.
+                </span>
+              )}
+              <div className="toolbar__spacer" />
+              {exportMessage && (
+                <span className="message" data-testid="message">
+                  {exportMessage}
+                </span>
+              )}
+              <button type="button" onClick={exportCsv} disabled={shown.plan.sell.length === 0}>
+                Export CSV
+              </button>
+            </div>
+            <ResultsView
+              plan={shown.plan}
+              owned={owned}
+              sections={shown.sections}
+              onCopyToBuilder={(spec) => setPopup(builderFromRelic(spec, index, 1))}
+            />
+          </>
+        )}
+      </section>
       <ComboDialog
         builder={popup}
         setBuilder={setPopupBuilder}
         index={index}
         onClose={() => setPopup(null)}
         onSubmit={(draft) => {
-          update((c) => addNeeds(c, [withDefaultLevels(draft, index)]).config);
+          updatePlan((c) => addNeeds(c, [withDefaultLevels(draft, index)]).config);
           setPopup(null);
         }}
       />
-      {tab === 'groups' && (
-        <GroupsTab
-          config={config}
-          update={update}
-          index={index}
-          character={character}
-          builder={builder}
-          setBuilder={setBuilder}
-        />
-      )}
-      {tab === 'stacking' && (
-        <StackingTab config={config} update={update} index={index} defaults={defaults} />
-      )}
     </>
   );
 }

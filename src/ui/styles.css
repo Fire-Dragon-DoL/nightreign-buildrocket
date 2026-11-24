@@ -90,8 +90,72 @@ select {
 .app__header {
   display: flex;
   gap: 1rem;
-  align-items: baseline;
+  align-items: center;
   flex-wrap: wrap;
+  /* The plan bar stays in view on every page. */
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  padding: 0.5rem 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+}
+
+.app__plan {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.menu__item--needs {
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.plan-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.plan-bar__drop {
+  display: grid;
+  padding: 0.2rem 0.6rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+  max-width: 22rem;
+}
+
+.plan-bar__drop:hover,
+.plan-bar__drop--over {
+  border-color: var(--accent);
+}
+
+.plan-bar__drop input {
+  display: none;
+}
+
+.plan-bar__name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.plan-bar__hint {
+  font-size: 0.72rem;
+  color: var(--muted, inherit);
+  opacity: 0.75;
+}
+
+.plan-bar__status {
+  display: grid;
+  font-size: 0.75rem;
+  max-width: 18rem;
 }
 
 .app__footer {

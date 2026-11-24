@@ -8,25 +8,21 @@ import {
   DEFAULT_GROUP,
   effectiveRules,
   IMPORTANCE_LABELS,
-  type SellConfig,
 } from '../../core/sell/config.ts';
 import { buildEffectIndex } from '../../core/sell/effects.ts';
 import { withDefaultLevels } from '../../core/sell/needs.ts';
-import { parseRnp } from '../../core/sell/rnp.ts';
-import { CSV_FILE_TYPE, isAbortError, PLAN_OPEN_TYPE, saveTextFile } from '../../storage/files.ts';
+import { CSV_FILE_TYPE, isAbortError, saveTextFile } from '../../storage/files.ts';
 import { saveWorker } from '../../worker/client.ts';
-import { FileDrop } from '../components/FileDrop.tsx';
 import { FileSourcePicker } from '../components/FileSourcePicker.tsx';
 import { ProgressBar } from '../components/ProgressBar.tsx';
 import { RelicCell, RelicEffects } from '../components/RelicParts.tsx';
 import { fileSafe } from '../fileSafe.ts';
+import { needCount, updatePlan, usePlan } from '../plan/planStore.ts';
+import { publishPool } from '../plan/referencePool.ts';
 import { type Builder, builderFromRelic } from '../sell/builder.ts';
 import { ComboDialog } from '../sell/ComboDialog.tsx';
 import { addNeeds } from '../sell/configEdit.ts';
-import { canSaveInPlace, type PlanFile, savePlan, saveTargetText } from '../sell/planFile.ts';
-import { useSellPlannerPlan } from '../sell/sharedPlan.ts';
 import { RelicRef } from '../sell/WhyCell.tsx';
-import { useUnsavedGuard } from '../unsaved.ts';
 import { useLoadedFile } from '../useLoadedFile.ts';
 
 type Run =
@@ -35,10 +31,7 @@ type Run =
   | { status: 'done'; result: PicksResult; ms: number }
   | { status: 'error'; message: string };
 
-type PlanSource = 'planner' | 'file';
-
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0$/, ''));
-const needCount = (c: SellConfig) => c.groups.reduce((n, g) => n + g.needs.length, 0);
 
 function NeedName({ f }: { f: Pick<PickFill, 'group' | 'label' | 'color'> }) {
   return (
@@ -72,82 +65,34 @@ export function SecondaryPicks() {
     [secondaryChar],
   );
 
-  const shared = useSellPlannerPlan();
-  const [planSource, setPlanSource] = useState<PlanSource>('planner');
-  const [filePlan, setFilePlan] = useState<
-    (PlanFile & { config: SellConfig; dirty: boolean }) | null
-  >(null);
-  useUnsavedGuard('picks-plan', filePlan?.dirty ?? false);
+  const { config } = usePlan();
+  // Needs Config counts owned relics from the Relic Pool when the Sell Planner has none.
+  useEffect(() => publishPool('picks', mainChar), [mainChar]);
   const [planMessage, setPlanMessage] = useState<string | null>(null);
-  const config = planSource === 'planner' ? shared.config : (filePlan?.config ?? null);
 
-  const openPlan = async (file: File, handle?: FileSystemFileHandle) => {
-    if (
-      filePlan?.dirty &&
-      !window.confirm(`${filePlan.name} has unsaved changes. Open another plan anyway?`)
-    ) {
-      return;
-    }
-    try {
-      const parsed = parseRnp(await file.text());
-      setFilePlan({
-        name: file.name,
-        config: parsed.config,
-        dirty: false,
-        ...(handle ? { handle } : {}),
-      });
-      setPlanSource('file');
-      setPlanMessage([`Loaded ${file.name}.`, ...parsed.warnings].join(' '));
-    } catch (err) {
-      setPlanMessage(`Could not load ${file.name}: ${(err as Error).message}`);
-    }
-  };
-
-  // Combos added from the results go into the plan in use.
+  // Combos added from the results go into the open plan.
   const index = useMemo(
-    () => (config ? buildEffectIndex(effectiveRules(config.effectRules)) : null),
-    [config],
+    () => buildEffectIndex(effectiveRules(config.effectRules)),
+    [config.effectRules],
   );
   const [popup, setPopup] = useState<Builder | null>(null);
   const setPopupBuilder = useCallback(
     (fn: (b: Builder) => Builder) => setPopup((p) => (p ? fn(p) : p)),
     [],
   );
-  const copyToBuilder = useMemo(
-    () =>
-      index && (planSource === 'file' || shared.update)
-        ? (spec: RelicSpec) => setPopup(builderFromRelic(spec, index, 1))
-        : undefined,
-    [index, planSource, shared.update],
+  const copyToBuilder = useCallback(
+    (spec: RelicSpec) => setPopup(builderFromRelic(spec, index, 1)),
+    [index],
   );
   const addCombo = (draft: ComboNeed) => {
-    if (!index) return;
-    const add = (c: SellConfig) => addNeeds(c, [withDefaultLevels(draft, index)]);
-    if (planSource === 'planner') {
-      shared.update?.((c) => add(c).config);
-      setPlanMessage("Added the combo to the Sell Planner's plan (save it there to keep it).");
-    } else if (filePlan) {
-      setFilePlan({ ...filePlan, config: add(filePlan.config).config, dirty: true });
-      setPlanMessage(`Added the combo to ${filePlan.name}.`);
-    }
+    updatePlan((c) => addNeeds(c, [withDefaultLevels(draft, index)]).config);
+    setPlanMessage('Added the combo to your plan (save it at the top to keep it).');
     setPopup(null);
-  };
-
-  const saveFilePlan = async (saveAs: boolean) => {
-    if (!filePlan) return;
-    try {
-      const { config: plan, dirty: _dirty, ...file } = filePlan;
-      const saved = await savePlan(plan, file, saveAs);
-      setFilePlan({ ...saved, config: plan, dirty: false });
-      setPlanMessage(`Saved ${saved.name}.`);
-    } catch (err) {
-      if (!isAbortError(err)) setPlanMessage(`Save failed: ${(err as Error).message}`);
-    }
   };
 
   const [run, setRun] = useState<Run>({ status: 'idle' });
   useEffect(() => {
-    if (!main || !secondary || !config) {
+    if (!main || !secondary) {
       setRun({ status: 'idle' });
       return;
     }
@@ -184,22 +129,20 @@ export function SecondaryPicks() {
     }
   };
 
-  const plannerName = `${shared.name ?? 'Unsaved plan'}${shared.dirty ? ' (changed)' : ''}`;
-
   return (
     <>
       <p className="intro">
         Find relics worth bringing over from another pool. Load the pool you play on as{' '}
         <b>Relic Pool</b> and the other one as <b>Secondary Pool</b> (a save or builds JSON each,
-        then pick a character), and choose a <b>plan</b>: the one open in the Sell Planner, or a
-        saved .rnp plan. The Secondary Pool is treated as a copy of your Relic Pool that drifted
-        apart: every relic your Relic Pool has removes one matching copy from it (same color, deep
-        or normal, slots, effects and curses), and only what's left (the <b>available pool</b>,
-        relics really earned on that side) is considered. Needs your Relic Pool is short of get the{' '}
-        <b>fewest</b> available relics that fill them, with the same rules as the Sell Planner
-        (colors must match, dealbreaker curses don't count, lower levels are backups). Below that:{' '}
-        <b>upgrades</b> (better than a copy you count) and <b>possible godrolls</b> your plan
-        doesn't mention.
+        then pick a character), and the relic needs <b>plan</b> open at the top says what you want
+        (set it up in <a href="#/needs">Needs Config</a>). The Secondary Pool is treated as a copy
+        of your Relic Pool that drifted apart: every relic your Relic Pool has removes one matching
+        copy from it (same color, deep or normal, slots, effects and curses), and only what's left
+        (the <b>available pool</b>, relics really earned on that side) is considered. Needs your
+        Relic Pool is short of get the <b>fewest</b> available relics that fill them, with the same
+        rules as the Sell Planner (colors must match, dealbreaker curses don't count, lower levels
+        are backups). Below that: <b>upgrades</b> (better than a copy you count) and{' '}
+        <b>possible godrolls</b> your plan doesn't mention.
       </p>
       <section className="loaders loaders--pair">
         <FileSourcePicker source={mainSource} label="Relic Pool" testId="picks-main" />
@@ -210,84 +153,16 @@ export function SecondaryPicks() {
         />
       </section>
 
-      <section className="file-source" data-testid="picks-plan">
-        <div className="toolbar">
-          <b>Plan:</b>
-          <label>
-            <input
-              type="radio"
-              name="picks-plan"
-              checked={planSource === 'planner'}
-              onChange={() => setPlanSource('planner')}
-              data-testid="picks-plan-planner"
-            />{' '}
-            Sell Planner's plan{' '}
-            <span className="muted">
-              ({plannerName} · {needCount(shared.config)} need(s))
-            </span>
-          </label>
-          <label>
-            <input
-              type="radio"
-              name="picks-plan"
-              checked={planSource === 'file'}
-              onChange={() => setPlanSource('file')}
-              data-testid="picks-plan-file"
-            />{' '}
-            Another plan{' '}
-            <span className="muted">
-              (
-              {filePlan
-                ? `${filePlan.name}${filePlan.dirty ? ' (changed)' : ''} · ${needCount(filePlan.config)} need(s)`
-                : 'none loaded'}
-              )
-            </span>
-          </label>
-          {planSource === 'file' && filePlan && (
-            <>
-              {canSaveInPlace() && (
-                <button
-                  type="button"
-                  onClick={() => void saveFilePlan(false)}
-                  disabled={!filePlan.dirty}
-                  title={saveTargetText(filePlan)}
-                  data-testid="picks-rnp-save"
-                >
-                  Save plan
-                </button>
-              )}
-              <button
-                type="button"
-                className={canSaveInPlace() ? 'button--quiet' : undefined}
-                onClick={() => void saveFilePlan(true)}
-                data-testid="picks-rnp-save-as"
-              >
-                Save as…
-              </button>
-            </>
-          )}
-        </div>
-        {planSource === 'file' && (
-          <FileDrop
-            label="Open relic needs plan (.rnp)"
-            hint="A plan saved from the Sell Planner (older .rsp plans open too)."
-            accept=".rnp,.rsp,.json,application/json"
-            handleTypes={[PLAN_OPEN_TYPE]}
-            onFile={(file, handle) => void openPlan(file, handle)}
-            testId="picks-rnp-input"
-          />
-        )}
-        {planSource === 'file' && filePlan && (
-          <span className="muted plan-target" data-testid="picks-rnp-target">
-            {saveTargetText(filePlan)}
-          </span>
-        )}
+      <p className="muted" data-testid="picks-plan">
+        Plan: the one open at the top ({needCount(config)} need(s)), set up in{' '}
+        <a href="#/needs">Needs Config</a>.
         {planMessage && (
           <span className="message" data-testid="picks-rnp-message">
+            {' '}
             {planMessage}
           </span>
         )}
-      </section>
+      </p>
 
       {[mainChar, secondaryChar].some((c) => c && !c.relics) && (
         <p className="warning" data-testid="picks-pool-warning">
@@ -297,7 +172,6 @@ export function SecondaryPicks() {
       )}
 
       {(!main || !secondary) && <p className="muted">Load both pools to see what to bring over.</p>}
-      {main && secondary && !config && <p className="muted">Load a plan (.rnp) to compare.</p>}
       {run.status === 'running' && (
         <ProgressBar label="Comparing pools…" value={run.progress} testId="picks-progress" />
       )}

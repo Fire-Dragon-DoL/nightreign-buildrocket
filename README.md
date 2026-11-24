@@ -38,7 +38,15 @@ needed as many times as the single build using it most needs it. Each missing
 relic lists the builds it blocks; untick builds you don't care about. _Export
 CSV_ writes the list with names and ids (UTF-8, opens in Excel).
 
-**Sell Planner:** open your save (or JSON), then say what you want to keep:
+**Relic needs plan and Needs Config:** one plan (`.rnp`) says what you want to
+keep, for the whole app. The bar at the top of every page shows the open plan,
+with _Save_, _Save as…_ and _New_; drop a plan on it (or click it) to open
+another. In Chrome, _Save_ writes back to the file you opened or last saved
+(_Save as…_ always asks); other browsers download it each time. Plans saved
+before the rename (`.rsp`) still open. Closing the tab with unsaved changes asks
+first. A plan holds only effects and rules, never anything from your save.
+_Needs Config_ (top right) edits it; owned counts and build seeding use the save
+loaded in the Sell Planner (or the Relic Pool in Secondary Pool Picks):
 
 - **Normal effects / Deep of Night:** give an effect an importance (Low,
   Normal, High, Must keep) and how many copies to keep, per color or in
@@ -62,20 +70,17 @@ CSV_ writes the list with names and ids (UTF-8, opens in Excel).
 - **Seed from builds:** add what builds use to the list once (merged, copies = the most any
   single build uses), then edit it.
 
-_Results_ lists every relic you can sell, grouped by Deep/normal, color and
+**Sell Planner:** open your save (or JSON); it uses the open plan. It lists every
+relic you can sell, grouped by Deep/normal, color and
 size, from risk 0 (safe) to 99, with why it's safe or what it would hurt, and
 a suggested in-game search per group. Selling everything up to a given risk
 is safe in the order shown. Relics the game won't let you sell aren't listed
 but still count toward your needs. Relics nothing in your plan wants but that
-look rare are flagged _possible godroll_. Save the plan as a relic needs plan
-(`.rnp`) to reuse it; it holds only effects and rules, never anything from your
-save. In Chrome, _Save_ writes back to the file you opened or last saved (_Save
-as…_ always asks); other browsers download it each time. Plans saved before the
-rename (`.rsp`) still open. Closing the tab with unsaved changes asks first.
+look rare are flagged _possible godroll_.
 
 **Secondary Pool Picks:** open the pool you play on as _Relic Pool_ and another
-one (another character, or a friend's save or JSON) as _Secondary Pool_, then
-choose the plan: the one open in the Sell Planner, or a saved `.rnp`. The
+one (another character, or a friend's save or JSON) as _Secondary Pool_; it uses
+the open plan too. The
 Secondary Pool is treated as a copy of the Relic Pool that drifted apart: each
 Relic Pool relic sets aside one matching Secondary copy (same color, deep or
 normal, slot count, effects and curses; the name doesn't matter) (2 red Fire +2 on the

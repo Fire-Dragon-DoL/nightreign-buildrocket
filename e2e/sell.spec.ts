@@ -101,12 +101,15 @@ test('plans what to sell, saves and reloads the plan, seeds from builds', async 
   await expect(page.locator('.owned-left__n--sold').first()).toContainText('→');
 
   // Want 2 red Magic Attack +2 as "must keep": two of the three are kept.
+  await page.getByTestId('menu-needs').click();
+  // Needs Config counts the Sell Planner's relics; the plan bar is there on every page.
+  await expect(page.getByTestId('needs-pool')).toContainText('Seller (Sell Planner)');
   await page.getByTestId('tab-normal').click();
   await page.getByTestId('normal-search').fill('Magic Attack Power Up +2');
   const row = page.getByTestId('effect-row').filter({ hasText: 'Magic Attack Power Up +2' });
   await row.getByTestId('effect-importance').selectOption('mustKeep');
   await row.getByTestId('effect-copies').fill('2');
-  await page.getByTestId('tab-results').click();
+  await page.getByLabel('Pages').getByRole('link', { name: 'Sell Planner' }).click();
   await expect(page.getByTestId('sell-summary')).toContainText('3 relic(s) can be sold, 2 kept');
   await expect(page.getByTestId('search-hint').first()).toBeVisible();
   // Each line says why: the third Magic relic is covered by one of the two kept.
@@ -123,13 +126,17 @@ test('plans what to sell, saves and reloads the plan, seeds from builds', async 
   await expect(page.getByTestId('rnp-message')).toContainText('Saved');
   const rnp = await lastWritten(page);
   expect(JSON.parse(rnp).format).toBe('buildrocket-rnp');
-  await page.getByRole('button', { name: 'New', exact: true }).click();
+  await page.getByLabel('Pages').getByRole('link', { name: 'Builds Viewer' }).click();
+  await expect(page.getByTestId('plan-bar')).toBeVisible();
+  await page.getByTestId('rnp-new').click();
+  await page.getByLabel('Pages').getByRole('link', { name: 'Sell Planner' }).click();
   await expect(page.getByTestId('sell-summary')).toContainText('0 kept');
   await page.getByTestId('rnp-input').setInputFiles(await writeTemp('plan.rnp', rnp));
   await expect(page.getByTestId('rnp-status')).toContainText('plan.rnp · 1 need(s)');
   await expect(page.getByTestId('sell-summary')).toContainText('2 kept');
 
   // Protect the save's build: its needs merge into the one list, no new group.
+  await page.getByTestId('menu-needs').click();
   await page.getByTestId('tab-groups').click();
   await page.getByTestId('seed').locator('summary').click();
   await page.getByTestId('seed-build').first().check();
@@ -162,6 +169,7 @@ test('builds, edits and reorders combos; copies a relic from the results', async
   await expect(dialog).toBeHidden();
   await expect(page.getByTestId('sell-updating')).toHaveCount(0);
   expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
+  await page.getByTestId('menu-needs').click();
   await page.getByTestId('tab-groups').click();
   await expect(page.getByTestId('need-row')).toHaveCount(1);
   await expect(page.getByTestId('need-row')).toContainText('Magic Attack Power Up +2');
@@ -169,10 +177,11 @@ test('builds, edits and reorders combos; copies a relic from the results', async
   await expect(page.getByTestId('need-row')).toHaveCount(0);
 
   // The popup closes with Esc without adding anything.
-  await page.getByTestId('tab-results').click();
+  await page.getByLabel('Pages').getByRole('link', { name: 'Sell Planner' }).click();
   await page.getByTestId('copy-to-builder').first().click();
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('combo-dialog')).toBeHidden();
+  await page.getByTestId('menu-needs').click();
   await page.getByTestId('tab-groups').click();
   await expect(page.getByTestId('need-row')).toHaveCount(0);
 
@@ -219,6 +228,7 @@ test('Save writes to the last file; Save as asks; .rsp plans open; unsaved chang
   const addEffect = (id: number) => page.getByTestId('group-add-effect').fill(`x #${id}`);
   const written = () =>
     page.evaluate(() => (window as unknown as { __written: string[] }).__written.length);
+  await page.getByTestId('menu-needs').click();
   await page.getByTestId('tab-groups').click();
 
   // First Save asks where; the next ones write there without asking.
