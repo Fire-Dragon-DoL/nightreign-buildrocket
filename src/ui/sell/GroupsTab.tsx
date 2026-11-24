@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import type { CharacterData } from '../../core/builds/characters.ts';
 import {
+  COMBO_ROLL_LABELS,
   type ComboNeed,
+  comboRoll,
   type Need,
   RELIC_COLORS,
   RELIC_KIND_LABELS,
@@ -175,6 +177,12 @@ function LevelSelect({
       ))}
     </select>
   );
+}
+
+/** "Combo · good roll" (2 slots) / "Combo · godroll" (3): what the owner calls such relics. */
+function rollTag(need: ComboNeed): string {
+  const roll = comboRoll(need);
+  return roll ? `Combo · ${COMBO_ROLL_LABELS[roll]}` : 'Combo';
 }
 
 function removeOption(need: ComboNeed, slot: number, id: number): ComboNeed {
@@ -360,7 +368,9 @@ function GroupCard({
                         <EffectName meta={meta} id={need.effect} />
                       ) : (
                         <div className="combo">
-                          <span className="combo__tag">Combo</span>
+                          <span className="combo__tag" data-testid="combo-roll">
+                            {rollTag(need)}
+                          </span>
                           {need.effects.map((id) => (
                             <ComboMember
                               key={id}

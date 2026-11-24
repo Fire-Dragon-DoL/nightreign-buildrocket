@@ -200,6 +200,8 @@ test('builds, edits and reorders combos; copies a relic from the results', async
   await expect(rows).toHaveCount(1);
   await expect(rows.getByTestId('combo-any')).toContainText('Fire Attack Power Up +4');
   await expect(rows.getByTestId('need-importance')).toHaveValue('mustKeep');
+  // Two slots (Dragon Communion + any of two): a good roll.
+  await expect(rows.getByTestId('combo-roll')).toHaveText('Combo · good roll');
   await expect(all).toBeFocused();
   await expect(page.getByTestId('builder-chip')).toHaveCount(0);
 

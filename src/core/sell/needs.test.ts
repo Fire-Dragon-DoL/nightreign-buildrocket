@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { EffectNeed, Need } from './config.ts';
+import { comboRoll, type EffectNeed, type Need } from './config.ts';
 import { buildEffectIndex } from './effects.ts';
 import { defaultMinLevel, mergeNeeds, needKey, withDefaultLevels } from './needs.ts';
 
@@ -80,5 +80,23 @@ describe('merging needs', () => {
       importance: 'normal',
     });
     expect(needKey(combo([1, 2]))).toBe(needKey(combo([2, 1])));
+  });
+});
+
+describe('combo terms', () => {
+  it('a 2-slot combo is a good roll, 3 slots a godroll', () => {
+    const combo = (effects: number[], anyOf?: number[][]) =>
+      ({
+        kind: 'combo',
+        effects,
+        ...(anyOf ? { anyOf } : {}),
+        copies: 1,
+        colorScope: 'any',
+        importance: 'normal',
+      }) as const;
+    expect(comboRoll(combo([1, 2]))).toBe('goodRoll');
+    expect(comboRoll(combo([1], [[2, 3]]))).toBe('goodRoll');
+    expect(comboRoll(combo([1, 2], [[3, 4]]))).toBe('godroll');
+    expect(comboRoll(combo([1]))).toBeNull();
   });
 });

@@ -79,6 +79,17 @@ export type Need = EffectNeed | ComboNeed;
 export const needEffectIds = (need: Need): number[] =>
   need.kind === 'effect' ? [need.effect] : [...need.effects, ...(need.anyOf ?? []).flat()];
 
+/**
+ * What a combo describes (owner's terms): 2 slots, a good roll (2 good attributes together);
+ * 3 or more, a godroll (3 together). A relic has at most 3 effects.
+ */
+export function comboRoll(need: ComboNeed): 'godroll' | 'goodRoll' | null {
+  const slots = need.effects.length + (need.anyOf?.length ?? 0);
+  return slots >= 3 ? 'godroll' : slots === 2 ? 'goodRoll' : null;
+}
+
+export const COMBO_ROLL_LABELS = { godroll: 'godroll', goodRoll: 'good roll' } as const;
+
 /** Slots of a combo: each required effect alone, then the "any of" slots. */
 export const comboSlots = (need: ComboNeed): number[][] => [
   ...need.effects.map((id) => [id]),

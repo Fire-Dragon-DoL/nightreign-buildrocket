@@ -118,7 +118,9 @@ Only PC saves are supported for now.
   not +3); relics with a curse you call a dealbreaker don't count.
 - **Godroll:** a relic with **3** good attributes together.
 - **Good roll:** a relic with **2** good attributes together.
-- **Combo:** effects you want on the same relic (Needs Config).
+- **Combo:** effects you want on the same relic (Needs Config). Combos usually
+  describe good rolls or godrolls: a 2-slot combo is labelled _good roll_, a
+  3-slot one _godroll_ (an "any of" slot counts as one).
 - **Relic Needs Plan (`.rnp`):** what you want to keep: effects, combos, copies.
 - **Primary / Secondary Save File:** a save or builds file (`.jsl2`); the primary
   one is used by every page, a secondary one by Relics Diff and Secondary Pool

@@ -28,8 +28,11 @@
 import { type RelicSpec, specKey } from '../builds/builds.ts';
 import { catalog, effectName, RELIC_COLOR_NAMES, rollRules } from '../catalog/catalog.ts';
 import {
+  COMBO_ROLL_LABELS,
   type ColorName,
+  type ComboNeed,
   type CursePenalty,
+  comboRoll,
   comboSlots,
   cursePenalty,
   DEFAULT_GROUP,
@@ -254,6 +257,12 @@ export function needRelicKind(need: Need): RelicKind | 'auto' {
   return need.relics ?? 'auto';
 }
 
+/** " (good roll)" / " (godroll)" after a combo's label, by its size. */
+function rollSuffix(need: ComboNeed): string {
+  const roll = comboRoll(need);
+  return roll ? ` (${COMBO_ROLL_LABELS[roll]})` : '';
+}
+
 function needLabel(need: Need, index: EffectIndex): string {
   if (need.kind === 'combo') {
     const label = (id: number) => memberLabel(index, id, need.minLevels?.[id]);
@@ -261,7 +270,8 @@ function needLabel(need: Need, index: EffectIndex): string {
       .map((slot) =>
         slot.length === 1 ? label(slot[0] as number) : `any of (${slot.map(label).join(' / ')})`,
       )
-      .join(' + ');
+      .join(' + ')
+      .concat(rollSuffix(need));
   }
   return memberLabel(index, need.effect, need.minLevel);
 }

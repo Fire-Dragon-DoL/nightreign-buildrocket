@@ -1,5 +1,5 @@
 import { type DragEvent, useEffect, useRef, useState } from 'react';
-import type { ComboNeed } from '../../core/sell/config.ts';
+import { type ComboNeed, comboRoll } from '../../core/sell/config.ts';
 import type { EffectIndex } from '../../core/sell/effects.ts';
 import {
   addEffect,
@@ -151,8 +151,11 @@ export function ComboBuilder({ builder, setBuilder, index, onSubmit, scroll = tr
         >
           + "any of" slot
         </button>
-        {draft && options > 1 && (
-          <span className="muted">{options} pairings, counted together</span>
+        {draft && (
+          <span className="muted" data-testid="builder-roll">
+            {comboRoll(draft) === 'godroll' ? 'Godroll (3 together)' : 'Good roll (2 together)'}
+            {options > 1 && ` · ${options} pairings, counted together`}
+          </span>
         )}
         <div className="toolbar__spacer" />
         <button

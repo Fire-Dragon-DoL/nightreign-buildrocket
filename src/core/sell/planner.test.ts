@@ -251,7 +251,7 @@ describe('levels and relic kinds', () => {
   it('a combo member can accept lower levels, on normal or deep relics', () => {
     const plan = planSell([relic(RED, [PHYS_1, BESTIAL])], config([combo]));
     expect(plan.needs[0]).toMatchObject({
-      label: 'Physical Attack Up +1 or higher + Improved Bestial Incantations',
+      label: 'Physical Attack Up +1 or higher + Improved Bestial Incantations (good roll)',
       full: 1,
     });
     const deep = planSell([relic(DEEP_RED, [PHYS_3, BESTIAL])], config([combo]));
@@ -426,7 +426,7 @@ describe('combos with "any of" slots', () => {
     const plan = planSell(relics, config([combo]));
     expect(plan.needs[0]).toMatchObject({
       label:
-        'Improved Dragon Communion Incantations + any of (Improved Incantations +2 / Fire Attack Power Up +4 / Improved Affinity Attack Power +2)',
+        'Improved Dragon Communion Incantations + any of (Improved Incantations +2 / Fire Attack Power Up +4 / Improved Affinity Attack Power +2) (good roll)',
       full: 3,
     });
     // Dragon Communion without any of the options doesn't count: it can go.
