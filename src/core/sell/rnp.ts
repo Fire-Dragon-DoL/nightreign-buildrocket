@@ -41,10 +41,10 @@ interface Named {
 interface NeedJson {
   kind: 'effect' | 'combo';
   effect?: Named;
-  /** `exact`: only `minLevel` itself counts. */
-  effects?: (Named & { minLevel?: number; exact?: boolean })[];
+  /** `exact`: only `minLevel` itself counts. `core`: every stand-in must carry it. */
+  effects?: (Named & { minLevel?: number; exact?: boolean; core?: boolean })[];
   /** Combo slots filled by any one of their effects. */
-  anyOf?: (Named & { minLevel?: number; exact?: boolean })[][];
+  anyOf?: (Named & { minLevel?: number; exact?: boolean; core?: boolean })[][];
   relics?: RelicKind;
   minLevel?: number;
   /** Only `minLevel` itself counts. */
@@ -83,10 +83,12 @@ function needToJson(need: Need): NeedJson {
   const member = (id: number) => {
     const minLevel = need.kind === 'combo' ? need.minLevels?.[id] : undefined;
     const exact = need.kind === 'combo' && need.exactLevels?.includes(id);
+    const core = need.kind === 'combo' && need.core?.includes(id);
     return {
       ...effect(id),
       ...(minLevel === undefined ? {} : { minLevel }),
       ...(exact ? { exact: true } : {}),
+      ...(core ? { core: true } : {}),
     };
   };
   const json: NeedJson =
@@ -216,8 +218,10 @@ function needFromJson(value: unknown): Need {
     );
     const minLevels: Record<number, number> = {};
     const exactLevels: number[] = [];
+    const core: number[] = [];
     for (const m of [...members, ...slots.flatMap((slot) => slot as unknown[])]) {
       if ((m as { exact?: unknown }).exact === true) exactLevels.push(idOf(m, 'combo effect'));
+      if ((m as { core?: unknown }).core === true) core.push(idOf(m, 'combo effect'));
       const level = (m as { minLevel?: unknown }).minLevel;
       if (level === undefined) continue;
       if (typeof level !== 'number') throw new RnpError('Invalid combo minimum level.');
@@ -231,6 +235,7 @@ function needFromJson(value: unknown): Need {
     if (anyOf.length > 0) combo.anyOf = anyOf;
     if (Object.keys(minLevels).length > 0) combo.minLevels = minLevels;
     if (exactLevels.length > 0) combo.exactLevels = exactLevels;
+    if (core.length > 0) combo.core = core;
     return combo;
   }
   throw new RnpError(`Unknown need kind: ${String(n.kind)}.`);
@@ -313,6 +318,7 @@ export function parseRnp(text: string): ParsedRnp {
             ...(n.exactLevels
               ? { exactLevels: n.exactLevels.map((id) => catalog().canonicalEffect(id)) }
               : {}),
+            ...(n.core ? { core: n.core.map((id) => catalog().canonicalEffect(id)) } : {}),
           },
     );
   }

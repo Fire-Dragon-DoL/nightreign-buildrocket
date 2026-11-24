@@ -1189,3 +1189,18 @@ tr.need-row--drop-below > td {
   text-decoration: line-through;
   opacity: 0.6;
 }
+
+/* ★ "needed in stand-ins" toggle on combo members. */
+.chip__core {
+  padding: 0 0.15rem;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.chip__core--on {
+  color: var(--accent);
+}

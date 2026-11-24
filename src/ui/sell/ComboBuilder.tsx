@@ -13,6 +13,7 @@ import {
   type Place,
   removeEffect,
   setBuilderLevel,
+  toggleCore,
 } from './builder.ts';
 import { addedMessage } from './configEdit.ts';
 import {
@@ -166,7 +167,32 @@ export function ComboBuilder({
         e.dataTransfer.effectAllowed = 'move';
       }}
       onDragEnd={() => setOver(null)}
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes(DRAG_TYPE)) return;
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      // Dropped on a chip: goes before it (reorders a row; order = preference among stand-ins).
+      onDrop={(e) => {
+        const data = e.dataTransfer.getData(DRAG_TYPE);
+        if (!data) return;
+        e.preventDefault();
+        e.stopPropagation();
+        setOver(null);
+        const dragged = JSON.parse(data) as { id: number; from: Place };
+        setBuilder((b) => moveEffect(b, dragged.id, dragged.from, from, id));
+      }}
     >
+      <button
+        type="button"
+        className={`chip__core${builder.core.includes(id) ? ' chip__core--on' : ''}`}
+        data-testid="builder-core"
+        aria-pressed={builder.core.includes(id)}
+        title="Needed in stand-ins: a relic with only some of the combo's effects counts while copies are missing only if it has this one (e.g. the damage effect)"
+        onClick={() => setBuilder((b) => toggleCore(b, id))}
+      >
+        {builder.core.includes(id) ? '★' : '☆'}
+      </button>
       {index.meta(id)?.name ?? id}
       <ChipLevel builder={builder} setBuilder={setBuilder} index={index} id={id} />
       <button
@@ -207,7 +233,11 @@ export function ComboBuilder({
     <div className="field combo-builder" ref={section} data-testid="combo-builder">
       <span>
         {editing ? 'Editing' : 'Combo builder'}
-        <span className="muted"> · same relic · drag effects between rows</span>
+        <span className="muted">
+          {' '}
+          · same relic · drag effects between rows, or onto another effect to reorder (earlier =
+          preferred) · ★ = every stand-in needs it
+        </span>
       </span>
       <div className="combo-builder__row" data-testid="builder-all" {...dropProps('all')}>
         <span className="muted combo-builder__label">All of</span>

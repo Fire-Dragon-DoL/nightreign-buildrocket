@@ -57,6 +57,7 @@ describe('.rsp files', () => {
       anyOf: [[6611302, 6001601, 6610802]],
       minLevels: { 6001601: 1 },
       exactLevels: [6001601],
+      core: [7044600],
       relics: 'any',
       copies: 3,
       colorScope: 'perColor',

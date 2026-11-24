@@ -78,6 +78,11 @@ export interface ComboNeed extends NeedBase {
   minLevels?: Record<number, number>;
   /** Members where only that level counts (see `EffectNeed.exactLevel`). */
   exactLevels?: number[];
+  /**
+   * Members every stand-in must carry: a relic with only some of the combo's effects counts while
+   * copies are missing only if it has these (e.g. the damage effect of a godroll).
+   */
+  core?: number[];
 }
 
 export type Need = EffectNeed | ComboNeed;

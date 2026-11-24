@@ -197,3 +197,20 @@ export function moveNeed(config: SellConfig, group: number, from: number, to: nu
 /** The needs new ones are added to (the plan's one list). */
 export const listNeeds = (config: SellConfig): Need[] =>
   config.groups.find((g) => g.name === DEFAULT_GROUP)?.needs ?? [];
+
+/**
+ * Remove needs listed more than once (same effects, levels, colors and relic kind), in each group:
+ * the first one stays, with the most copies and the highest importance of its duplicates.
+ */
+export function removeDuplicateNeeds(
+  config: SellConfig,
+  index?: EffectIndex,
+): { config: SellConfig; removed: number } {
+  let removed = 0;
+  const groups = config.groups.map((g) => {
+    const merged = mergeNeeds([], g.needs, index);
+    removed += g.needs.length - merged.needs.length;
+    return { ...g, needs: merged.needs };
+  });
+  return { config: { ...config, groups }, removed };
+}

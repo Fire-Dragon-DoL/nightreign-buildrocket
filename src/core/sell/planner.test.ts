@@ -496,3 +496,58 @@ describe('exact levels ("+N only")', () => {
     expect(p.needs[0]?.coverage).toBeLessThan(1);
   });
 });
+
+describe('stand-ins while godroll copies are missing', () => {
+  const PHYS_4 = 6001401;
+  const PHYS_2 = 7001402;
+  const ART_1 = 6090000; // Defeating enemies fills more of the Art gauge +1
+  const POST_2 = 6005601; // Partial HP Restoration upon Post-Damage Attacks +2
+  // Physical (★: every stand-in needs it), then Defeating, then Post-damage: in order of preference.
+  const godroll = (copies: number, extra: Partial<Need> = {}): Need =>
+    ({
+      kind: 'combo',
+      effects: [PHYS_4, ART_1, POST_2],
+      minLevels: { [PHYS_4]: 2 },
+      core: [PHYS_4],
+      relics: 'any',
+      copies,
+      colorScope: 'any',
+      importance: 'mustKeep',
+      ...extra,
+    }) as Need;
+  const physDefeat = relic(DEEP_RED, [PHYS_4, ART_1], [HP_LOSS]); // strong, with a curse
+  const physPost = relic(DEEP_RED, [PHYS_2, POST_2]);
+  const postDefeat = relic(DEEP_RED, [POST_2, ART_1]);
+  const cursed = config([godroll(1)], {
+    effectRules: { ...emptyConfig().effectRules, curseDefaults: { [HP_LOSS]: 'annoying' } },
+  });
+
+  it('the strongest stand-in fills the missing copy, even with a curse', () => {
+    const plan = planSell([physPost, physDefeat], cursed);
+    expect(plan.sell.map((e) => e.spec)).toEqual([physPost]);
+    expect(plan.kept.map((k) => k.spec)).toEqual([physDefeat]);
+  });
+
+  it('without the ★ effect a relic is no stand-in at all', () => {
+    const plan = planSell([postDefeat], cursed);
+    expect(plan.sell).toMatchObject([{ spec: postDefeat, verdict: 'unwanted' }]);
+  });
+
+  it('a weaker relic kept for another reason does not beat a stronger stand-in', () => {
+    const both = config(
+      [godroll(1), effectNeed(POST_2, { copies: 1, colorScope: 'any', importance: 'mustKeep' })],
+      {
+        effectRules: cursed.effectRules,
+      },
+    );
+    const plan = planSell([physPost, physDefeat], both);
+    expect(plan.sell).toHaveLength(0);
+  });
+
+  it('keeps one stand-in per missing copy, strongest first', () => {
+    const physPost4 = relic(DEEP_RED, [PHYS_4, POST_2]);
+    const plan = planSell([physPost, physPost4, physDefeat], config([godroll(2)]));
+    // Two copies missing: Physical + Defeating, then the higher Physical + Post-damage.
+    expect(plan.sell.map((e) => e.spec)).toEqual([physPost]);
+  });
+});

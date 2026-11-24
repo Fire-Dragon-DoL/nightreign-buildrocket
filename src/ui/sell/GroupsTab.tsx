@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { CharacterData } from '../../core/builds/characters.ts';
 import {
   COMBO_ROLL_LABELS,
@@ -23,6 +23,7 @@ import {
   DEFAULT_GROUP,
   mergeAllGroups,
   moveNeed,
+  removeDuplicateNeeds,
   setGroups,
   updateGroup,
   updateNeed,
@@ -61,6 +62,7 @@ export function GroupsTab({
   setBuilder,
 }: Props & { character: CharacterData | undefined; builder: Builder; setBuilder: SetBuilder }) {
   const legacy = config.groups.length > 1;
+  const duplicates = useMemo(() => removeDuplicateNeeds(config, index).removed, [config, index]);
   const main = Math.max(
     0,
     config.groups.findIndex((g) => g.name === DEFAULT_GROUP),
@@ -73,6 +75,18 @@ export function GroupsTab({
           effects you want on the same relic.
         </span>
         <div className="toolbar__spacer" />
+        <button
+          type="button"
+          className="button--quiet"
+          data-testid="remove-duplicates"
+          disabled={duplicates === 0}
+          title="Needs listed more than once (same effects, levels, colors and relic kind): keep one, with the most copies and the highest importance"
+          onClick={() => update((c) => removeDuplicateNeeds(c, index).config)}
+        >
+          {duplicates === 0
+            ? 'No duplicates'
+            : `Remove ${duplicates} duplicate${duplicates === 1 ? '' : 's'}`}
+        </button>
         <button
           type="button"
           className="button--quiet"
@@ -222,8 +236,27 @@ function ComboMember({
   edit: (fn: (n: Need) => Need) => void;
   onRemove?: (() => void) | undefined;
 }) {
+  const core = need.core?.includes(id) ?? false;
   return (
     <div className="combo__member">
+      <button
+        type="button"
+        className={`chip__core${core ? ' chip__core--on' : ''}`}
+        data-testid="member-core"
+        aria-pressed={core}
+        title="Needed in stand-ins: while copies are missing, a relic with only some of the combo's effects counts only if it has this one"
+        onClick={() =>
+          edit((n) => {
+            if (n.kind !== 'combo') return n;
+            const others = (n.core ?? []).filter((x) => x !== id);
+            const { core: _old, ...rest } = n;
+            const next = core ? others : [...others, id];
+            return next.length ? { ...rest, core: next } : rest;
+          })
+        }
+      >
+        {core ? '★' : '☆'}
+      </button>
       <EffectName meta={index.meta(id)} id={id} />
       <LevelSelect
         index={index}

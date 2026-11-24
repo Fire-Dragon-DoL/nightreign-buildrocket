@@ -202,6 +202,8 @@ export interface Contribution {
   unit: Unit;
   full: boolean;
   weight: number;
+  /** Strength among the need's matches (see `Match.rank`): stronger stand-ins count first. */
+  rank: number;
   /** Matching effect, for stacking checks (null for combos: they are about one relic). */
   effect: number | null;
   /** Level matched per wanted effect (combo members in order), -1 = missing. */
@@ -229,6 +231,11 @@ interface Match {
   effect: number | null;
   levels: number[];
   surplus: number;
+  /**
+   * Strength among matches of the same need: which stand-ins count first while copies are
+   * missing. Combos: effects matched (earlier members first), then levels, then milder curses.
+   */
+  rank: number;
 }
 
 const colorOf = (itemId: number): ColorName | null => {
@@ -274,8 +281,9 @@ function rollSuffix(need: ComboNeed): string {
 
 function needLabel(need: Need, index: EffectIndex): string {
   if (need.kind === 'combo') {
+    // ★ marks the members every stand-in must carry.
     const label = (id: number) =>
-      memberLabel(index, id, need.minLevels?.[id], isExactLevel(need, id));
+      `${need.core?.includes(id) ? '★ ' : ''}${memberLabel(index, id, need.minLevels?.[id], isExactLevel(need, id))}`;
     return comboSlots(need)
       .map((slot) =>
         slot.length === 1 ? label(slot[0] as number) : `any of (${slot.map(label).join(' / ')})`,
@@ -323,6 +331,7 @@ function matchEffect(
             effect: id,
             levels: [meta.level],
             surplus: meta.level - minLevel,
+            rank: meta.level,
           }
         : {
             full: false,
@@ -330,6 +339,7 @@ function matchEffect(
             effect: id,
             levels: [meta.level],
             surplus: 0,
+            rank: meta.level,
           };
     if (m.weight <= 0) continue;
     // The highest level on the relic is the one that counts.
@@ -360,7 +370,7 @@ function matchNeed(
     const meta = index.meta(need.effect);
     if (!meta) {
       return effects.includes(need.effect)
-        ? { full: true, weight: 1, effect: need.effect, levels: [0], surplus: 0 }
+        ? { full: true, weight: 1, effect: need.effect, levels: [0], surplus: 0, rank: 0 }
         : null;
     }
     return matchEffect(
@@ -378,6 +388,8 @@ function matchNeed(
   // One level per option of every slot, in order, so relics compare position by position.
   const levels: number[] = [];
   const slots = comboSlots(need);
+  const slotFull: boolean[] = [];
+  let levelSum = 0;
   for (const slot of slots) {
     let best: Match | null = null;
     for (const id of slot) {
@@ -392,7 +404,7 @@ function matchNeed(
             isExactLevel(need, id),
           )
         : effects.includes(id)
-          ? { full: true, weight: 1, effect: id, levels: [0], surplus: 0 }
+          ? { full: true, weight: 1, effect: id, levels: [0], surplus: 0, rank: 0 }
           : null;
       levels.push(m?.levels[0] ?? -1);
       // Any option fills the slot: the best one counts.
@@ -405,20 +417,55 @@ function matchNeed(
         best = m;
       }
     }
+    slotFull.push(best?.full === true);
     if (!best?.full) allFull = false;
+    else levelSum += best.levels[0] ?? 0;
     total += best?.weight ?? 0;
     surplus += best?.full ? best.surplus : 0;
   }
-  if (allFull) return { full: true, weight: 1, effect: null, levels, surplus };
+  // Milder curses rank first among equals.
+  const curseBurden = spec.curses.reduce<number>(
+    (n, c) => n + (c === null ? 0 : CURSE_VALUE[cursePenalty(config, need, c)]),
+    0,
+  );
+  if (allFull) {
+    return {
+      full: true,
+      weight: 1,
+      effect: null,
+      levels,
+      surplus,
+      rank: standInRank(slots.length, 0, surplus, curseBurden),
+    };
+  }
   if (total <= 0) return null;
+  // A stand-in must carry the members marked as needed (the slots holding them, fully matched).
+  const coreSlots = slots
+    .map((slot, i) => (slot.some((id) => need.core?.includes(id)) ? i : -1))
+    .filter((i) => i >= 0);
+  if (coreSlots.some((i) => !slotFull[i])) return null;
+  // Effects matched, earlier members first (the combo's order is its preference), then levels.
+  const matched = slotFull.filter(Boolean).length;
+  const order = slotFull.reduce((n, f, i) => n + (f ? 2 ** (slots.length - 1 - i) : 0), 0);
   return {
     full: false,
     weight: (PARTIAL_COMBO_FACTOR * total) / slots.length,
     effect: null,
     levels,
     surplus: 0,
+    rank: standInRank(matched, order, levelSum, curseBurden),
   };
 }
+
+/**
+ * A stand-in's strength as a small integer (higher = stronger), compared field by field: effects
+ * matched, which ones (bit mask, earlier members higher), levels, then curse burden (0.5 steps).
+ */
+const standInRank = (matched: number, order: number, levels: number, curses: number) =>
+  matched * 10000 + order * 1000 + Math.min(levels, 99) * 8 - Math.round(curses * 2);
+
+/** Tiny coverage bonus per rank point: selling a stronger stand-in for a weaker one is a loss. */
+const RANK_BONUS = 1e-7;
 
 /**
  * Coverage of a bucket: full copies, plus backups standing in for the copies
@@ -440,7 +487,8 @@ export function coverage(bucket: Bucket, index: EffectIndex, skip?: Contribution
   let slots = bucket.target - full;
   if (slots <= 0) return full;
   let total = full;
-  backups.sort((a, b) => b.weight - a.weight);
+  // The strongest stand-ins count first: more of the need, then the need's own ranking.
+  backups.sort((a, b) => b.weight - a.weight || b.rank - a.rank);
   for (const b of backups) {
     if (slots <= 0) break;
     if (b.effect !== null) {
@@ -454,13 +502,14 @@ export function coverage(bucket: Bucket, index: EffectIndex, skip?: Contribution
       if (!ok) continue;
       counted.add(b.effect);
     }
-    total += b.weight;
+    total += b.weight + Math.max(0, b.rank) * RANK_BONUS;
     slots--;
   }
   return total;
 }
 
-const contributionKey = (c: Contribution) => `${c.full ? 'F' : 'B'}|${c.effect}|${c.weight}`;
+const contributionKey = (c: Contribution) =>
+  `${c.full ? 'F' : 'B'}|${c.effect}|${c.weight}|${c.rank}`;
 
 function bucketCoverage(bucket: Bucket, index: EffectIndex): number {
   bucket.current ??= coverage(bucket, index);

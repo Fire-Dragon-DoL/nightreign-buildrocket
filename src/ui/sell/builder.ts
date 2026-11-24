@@ -50,6 +50,8 @@ export interface Builder {
    * Effects without a choice get the default (see `builderLevel`).
    */
   levels: Record<number, LevelChoice>;
+  /** Effects every stand-in must carry (★): see `ComboNeed.core`. */
+  core: number[];
   /** The need being edited (saving replaces it), or null for new needs. */
   editing: { group: number; need: number } | null;
   /** Bumped when another tab fills the builder, so it scrolls into view and takes the focus. */
@@ -68,6 +70,7 @@ export const emptyBuilder = (focus = 0, settings = DEFAULT_BUILDER_SETTINGS): Bu
   perms: [],
   settings,
   levels: {},
+  core: [],
   editing: null,
   focus,
 });
@@ -107,10 +110,42 @@ export function addEffect(b: Builder, id: number, to: Place): Builder {
   return b;
 }
 
-/** Drag and drop: move `id` from one place to another. A slot or column emptied by it goes away. */
-export function moveEffect(b: Builder, id: number, from: Place, to: Place): Builder {
-  if (from === to) return b;
-  const moved = addEffect(removeEffect(b, id, from), id, to);
+/** Put `id` before `before` in its row (the order is the combo's: earlier members rank first). */
+function placeBefore(list: number[], id: number, before: number | undefined): number[] {
+  if (before === undefined || before === id || !list.includes(before)) return list;
+  const rest = list.filter((x) => x !== id);
+  const at = rest.indexOf(before);
+  return [...rest.slice(0, at), id, ...rest.slice(at)];
+}
+
+/**
+ * Drag and drop: move `id` from one place to another, before the effect `before` when dropped on
+ * one (also to reorder a row). A slot or column emptied by it goes away.
+ */
+export function moveEffect(
+  b: Builder,
+  id: number,
+  from: Place,
+  to: Place,
+  before?: number,
+): Builder {
+  if (from === to) {
+    if (before === undefined) return b;
+    const reorder = (s: number[]) => placeBefore(s, id, before);
+    if (to === 'all') return { ...b, all: reorder(b.all) };
+    const any = indexOf(to, 'any');
+    if (any !== null) return { ...b, anyOf: b.anyOf.map((s, i) => (i === any ? reorder(s) : s)) };
+    const perm = indexOf(to, 'perm');
+    if (perm !== null) return { ...b, perms: b.perms.map((s, i) => (i === perm ? reorder(s) : s)) };
+    return b;
+  }
+  const added = addEffect(removeEffect(b, id, from), id, to);
+  const moved =
+    before === undefined
+      ? added
+      : to === 'all'
+        ? { ...added, all: placeBefore(added.all, id, before) }
+        : added;
   const any = indexOf(from, 'any');
   if (any !== null && moved.anyOf[any]?.length === 0) {
     return { ...moved, anyOf: moved.anyOf.filter((_, i) => i !== any) };
@@ -157,6 +192,12 @@ export function builderLevel(b: Builder, id: number, index: EffectIndex): LevelC
   return { min: defaultMinLevel(index, id) ?? own, exact: false };
 }
 
+/** Mark or unmark an effect every stand-in must carry (★). */
+export const toggleCore = (b: Builder, id: number): Builder => ({
+  ...b,
+  core: b.core.includes(id) ? b.core.filter((x) => x !== id) : [...b.core, id],
+});
+
 /** Choose the level for an effect (every need the builder makes gets it). */
 export const setBuilderLevel = (b: Builder, id: number, choice: LevelChoice): Builder => ({
   ...b,
@@ -197,6 +238,8 @@ export function builderDrafts(b: Builder, index?: EffectIndex): Need[] {
     const need: ComboNeed = { kind: 'combo', effects, ...b.settings, relics: 'any' };
     if (anyOf.length) need.anyOf = anyOf.map((s) => [...s]);
     const members = [...effects, ...anyOf.flat()];
+    const core = b.core.filter((id) => members.includes(id));
+    if (core.length) need.core = core;
     const chosen = members.flatMap((id) => {
       const c = choice(id);
       return c ? [[id, c] as const] : [];
@@ -223,9 +266,10 @@ export function draftLabel(need: Need, index: EffectIndex): string {
     if (!meta) return String(id);
     const min = need.kind === 'effect' ? need.minLevel : need.minLevels?.[id];
     // "Family +0 only": the base effect's name has no level in it.
-    if (exact) return `${meta.family} +${min ?? meta.level} only`;
-    if (min !== undefined && min < meta.level) return `${meta.family} +${min} or higher`;
-    return meta.name;
+    const star = need.kind === 'combo' && need.core?.includes(id) ? '★ ' : '';
+    if (exact) return `${star}${meta.family} +${min ?? meta.level} only`;
+    if (min !== undefined && min < meta.level) return `${star}${meta.family} +${min} or higher`;
+    return `${star}${meta.name}`;
   };
   if (need.kind === 'effect') return name(need.effect);
   return [
@@ -259,6 +303,7 @@ export const builderFromNeed = (
   perms: [],
   settings: { copies: need.copies, colorScope: need.colorScope, importance: need.importance },
   levels: levelsOf(need),
+  core: need.kind === 'combo' ? [...(need.core ?? [])] : [],
   editing: at,
   focus,
 });
@@ -312,6 +357,8 @@ export function applyEdit(old: Need, draft: Need): Need {
     ids.has(id),
   );
   if (exact.length) next.exactLevels = exact;
+  // The builder held the combo's ★ marks: its draft is the new set.
+  if (draft.core?.length) next.core = draft.core;
   return next;
 }
 

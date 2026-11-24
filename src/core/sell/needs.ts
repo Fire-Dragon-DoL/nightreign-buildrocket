@@ -56,7 +56,7 @@ export function needKey(need: Need, index?: EffectIndex): string {
   const picked = need.colorScope === 'perColor' ? [...new Set(need.colors ?? [])].sort() : [];
   const colors = picked.length === RELIC_COLORS.length ? '' : picked.join('/');
   const member = (id: number, min: number | undefined, exact: boolean) =>
-    `${id}@${min ?? index?.meta(id)?.level ?? ''}${exact ? '!' : ''}`;
+    `${id}@${min ?? index?.meta(id)?.level ?? ''}${exact ? '!' : ''}${need.kind === 'combo' && need.core?.includes(id) ? '*' : ''}`;
   const what =
     need.kind === 'effect'
       ? `E${member(need.effect, need.minLevel, need.exactLevel === true)}`

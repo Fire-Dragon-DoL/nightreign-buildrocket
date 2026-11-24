@@ -13,8 +13,9 @@ import {
   followEdit,
   moveEffect,
   setBuilderLevel,
+  toggleCore,
 } from './builder.ts';
-import { moveNeed } from './configEdit.ts';
+import { moveNeed, removeDuplicateNeeds } from './configEdit.ts';
 
 const DRAGON = 7044600;
 const INCANT_2 = 6611302;
@@ -135,6 +136,17 @@ describe('combo builder', () => {
     ]);
   });
 
+  it('★ effects go to every combo that has them; dropping on an effect reorders the row', () => {
+    let b = { ...emptyBuilder(), all: [PHYS_4, FROST_1, FROST_2] };
+    b = toggleCore(b, PHYS_4);
+    b = moveEffect(b, FROST_2, 'all', 'all', FROST_1);
+    expect(b.all).toEqual([PHYS_4, FROST_2, FROST_1]);
+    const [draft] = builderDrafts(b, index) as ComboNeed[];
+    expect(draft).toMatchObject({ effects: [PHYS_4, FROST_2, FROST_1], core: [PHYS_4] });
+    expect(builderFromNeed(draft as ComboNeed, null, 1).core).toEqual([PHYS_4]);
+    expect(toggleCore(b, PHYS_4).core).toEqual([]);
+  });
+
   it('editing a need loads its levels into the builder', () => {
     const need: ComboNeed = {
       kind: 'combo',
@@ -210,6 +222,22 @@ describe('combo builder', () => {
       3,
     );
     expect(b).toMatchObject({ all: [DRAGON, FIRE_4], anyOf: [], perms: [], focus: 3 });
+  });
+});
+
+describe('removing duplicate needs', () => {
+  it('keeps the first of each, with the most copies and the highest importance', () => {
+    const need = (copies: number, importance: 'low' | 'high') =>
+      ({ kind: 'effect', effect: DRAGON, copies, colorScope: 'any', importance }) as const;
+    const config: SellConfig = {
+      ...emptyConfig(),
+      groups: [
+        { name: 'General', needs: [need(1, 'high'), { ...need(3, 'low') }, need(1, 'low')] },
+      ],
+    };
+    const r = removeDuplicateNeeds(config, index);
+    expect(r.removed).toBe(2);
+    expect(r.config.groups[0]?.needs).toEqual([need(3, 'high')]);
   });
 });
 

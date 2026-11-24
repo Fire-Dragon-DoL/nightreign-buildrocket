@@ -195,6 +195,9 @@ test('builds, edits and reorders combos; copies a relic from the results', async
   await chip('Fire Attack Power Up +4').dragTo(page.getByTestId('builder-any'), byName);
   await expect(page.getByTestId('builder-any').getByTestId('builder-chip')).toHaveCount(2);
   await expect(page.getByTestId('builder-count')).toHaveText('1 combo (good roll)');
+  // ★ Dragon Communion: every stand-in must carry it.
+  await chip('Improved Dragon Communion Incantations').getByTestId('builder-core').click();
+  await expect(page.getByTestId('builder-preview')).toContainText('★ Improved Dragon Communion');
   // Enter on the empty field adds the combo, and the builder is ready for the next one.
   await all.press('Enter');
 
@@ -204,6 +207,7 @@ test('builds, edits and reorders combos; copies a relic from the results', async
   await expect(rows.getByTestId('need-importance')).toHaveValue('mustKeep');
   // Two slots (Dragon Communion + any of two): a good roll.
   await expect(rows.getByTestId('combo-roll')).toHaveText('Combo · good roll');
+  await expect(rows.getByTestId('member-core').first()).toHaveAttribute('aria-pressed', 'true');
   // "+N only": that level and nothing else counts (for effects that don't stack with themselves).
   const level = rows.getByTestId('need-level').first();
   await level.selectOption('0=');
@@ -415,4 +419,32 @@ test('the builder makes a combo per permutation, also from the results popup', a
   ).toHaveValue('3');
   await expect(rows.nth(1).getByTestId('need-level').last()).toHaveValue('1=');
   await expect(rows.nth(1).getByTestId('need-level').first()).toHaveValue('3');
+});
+
+test('removes needs listed twice from an opened plan', async ({ page }) => {
+  await page.goto(SELL_URL);
+  const need = {
+    kind: 'effect',
+    effect: { id: 7001502 },
+    copies: 2,
+    colorScope: 'any',
+    importance: 'mustKeep',
+  };
+  const plan = JSON.stringify({
+    format: 'buildrocket-rnp',
+    version: 1,
+    savedAt: '2026-11-24T00:00:00.000Z',
+    effectRules: { families: [], stacksWithSelf: [], noStack: [], stack: [], curseDefaults: [] },
+    groups: [{ name: 'General', needs: [need, { ...need, copies: 3 }, need] }],
+    neverSell: [],
+  });
+  await page.getByTestId('rnp-input').setInputFiles(await writeTemp('dupes.rnp', plan));
+  await expect(page.getByTestId('rnp-status')).toContainText('3 need(s)');
+  await page.getByTestId('menu-needs').click();
+  await page.getByTestId('tab-groups').click();
+  await expect(page.getByTestId('remove-duplicates')).toHaveText('Remove 2 duplicates');
+  await page.getByTestId('remove-duplicates').click();
+  await expect(page.getByTestId('rnp-status')).toContainText('(changed) · 1 need(s)');
+  await expect(page.getByTestId('need-row').locator('.copies')).toHaveValue('3');
+  await expect(page.getByTestId('remove-duplicates')).toBeDisabled();
 });
