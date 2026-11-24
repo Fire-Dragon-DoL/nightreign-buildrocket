@@ -202,6 +202,10 @@ test('builds, edits and reorders combos; copies a relic from the results', async
   await expect(rows.getByTestId('need-importance')).toHaveValue('mustKeep');
   // Two slots (Dragon Communion + any of two): a good roll.
   await expect(rows.getByTestId('combo-roll')).toHaveText('Combo · good roll');
+  // "+N only": that level and nothing else counts (for effects that don't stack with themselves).
+  const level = rows.getByTestId('need-level').first();
+  await level.selectOption('0=');
+  await expect(level).toHaveValue('0=');
   await expect(all).toBeFocused();
   await expect(page.getByTestId('builder-chip')).toHaveCount(0);
 

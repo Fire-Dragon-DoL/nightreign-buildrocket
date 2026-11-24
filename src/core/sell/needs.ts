@@ -24,13 +24,13 @@ export function defaultMinLevel(index: EffectIndex, id: number): number | undefi
 /** The need with default levels filled in where it has none. */
 export function withDefaultLevels(need: Need, index: EffectIndex): Need {
   if (need.kind === 'effect') {
-    if (need.minLevel !== undefined) return need;
+    if (need.minLevel !== undefined || need.exactLevel) return need;
     const level = defaultMinLevel(index, need.effect);
     return level === undefined ? need : { ...need, minLevel: level };
   }
   const minLevels = { ...need.minLevels };
   for (const id of needEffectIds(need)) {
-    if (minLevels[id] !== undefined) continue;
+    if (minLevels[id] !== undefined || need.exactLevels?.includes(id)) continue;
     const level = defaultMinLevel(index, id);
     if (level !== undefined) minLevels[id] = level;
   }
@@ -42,16 +42,22 @@ export function needKey(need: Need): string {
   const colors = need.colorScope === 'perColor' ? [...(need.colors ?? [])].sort().join('/') : '';
   const what =
     need.kind === 'effect'
-      ? `E${need.effect}@${need.minLevel ?? ''}`
+      ? `E${need.effect}@${need.minLevel ?? ''}${need.exactLevel ? '!' : ''}`
       : `C${[...need.effects]
           .sort((a, b) => a - b)
-          .map((id) => `${id}@${need.minLevels?.[id] ?? ''}`)
+          .map(
+            (id) =>
+              `${id}@${need.minLevels?.[id] ?? ''}${need.exactLevels?.includes(id) ? '!' : ''}`,
+          )
           .join(',')}${(need.anyOf ?? [])
           .map(
             (slot) =>
               `|any:${[...slot]
                 .sort((a, b) => a - b)
-                .map((id) => `${id}@${need.minLevels?.[id] ?? ''}`)
+                .map(
+                  (id) =>
+                    `${id}@${need.minLevels?.[id] ?? ''}${need.exactLevels?.includes(id) ? '!' : ''}`,
+                )
                 .join(',')}`,
           )
           .sort()

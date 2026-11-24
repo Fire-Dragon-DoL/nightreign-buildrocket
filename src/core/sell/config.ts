@@ -57,6 +57,11 @@ export interface EffectNeed extends NeedBase {
   effect: number;
   /** Defaults to the level of `effect`. */
   minLevel?: number;
+  /**
+   * Only `minLevel` itself counts: no higher level, no lower backups. For effects that don't stack
+   * with themselves, where two relics should carry different levels (+0 and +1).
+   */
+  exactLevel?: boolean;
 }
 
 /** Keep relics carrying all these effects at once (supersets match, partial matches are backups). */
@@ -71,9 +76,15 @@ export interface ComboNeed extends NeedBase {
   anyOf?: number[][];
   /** Effect id → lowest level that counts for that member (default: the member's own level). */
   minLevels?: Record<number, number>;
+  /** Members where only that level counts (see `EffectNeed.exactLevel`). */
+  exactLevels?: number[];
 }
 
 export type Need = EffectNeed | ComboNeed;
+
+/** Whether only the member's level counts (not higher ones, no lower backups). */
+export const isExactLevel = (need: Need, id: number): boolean =>
+  need.kind === 'effect' ? need.exactLevel === true : (need.exactLevels?.includes(id) ?? false);
 
 /** Every effect a need names (combo members and their "any of" options). */
 export const needEffectIds = (need: Need): number[] =>

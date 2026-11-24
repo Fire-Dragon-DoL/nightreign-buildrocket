@@ -101,7 +101,7 @@ export function applyEdit(old: Need, draft: ComboNeed): ComboNeed {
     old.kind === 'combo'
       ? { ...old }
       : { ...draft, copies: old.copies, importance: old.importance, colorScope: old.colorScope };
-  const { anyOf: _a, minLevels: _m, ...rest } = base;
+  const { anyOf: _a, minLevels: _m, exactLevels: _e, ...rest } = base;
   const next: ComboNeed = { ...rest, effects: draft.effects };
   if (draft.anyOf) next.anyOf = draft.anyOf;
   const minLevels = Object.fromEntries(
@@ -110,6 +110,8 @@ export function applyEdit(old: Need, draft: ComboNeed): ComboNeed {
     ),
   );
   if (Object.keys(minLevels).length) next.minLevels = minLevels;
+  const exact = (old.kind === 'combo' ? (old.exactLevels ?? []) : []).filter((id) => ids.has(id));
+  if (exact.length) next.exactLevels = exact;
   return next;
 }
 

@@ -38,6 +38,7 @@ import {
   DEFAULT_GROUP,
   effectiveRules,
   type Importance,
+  isExactLevel,
   type Need,
   needEffectIds,
   RELIC_COLORS,
@@ -244,12 +245,20 @@ const poolsMatch = (a: EffectMeta, b: EffectMeta) =>
 export const relicEffects = (spec: RelicSpec): number[] =>
   [...spec.effects, ...spec.curses].filter((e): e is number => e !== null);
 
-/** A member's name, or "Family +N or higher" when a lower level is allowed. */
-function memberLabel(index: EffectIndex, id: number, minLevel: number | undefined): string {
+/** A member's name, "Family +N or higher" when a lower level is allowed, "Family +N only". */
+function memberLabel(
+  index: EffectIndex,
+  id: number,
+  minLevel: number | undefined,
+  exact = false,
+): string {
   const meta = index.meta(id);
   if (!meta) return effectName(id);
-  if (minLevel === undefined || minLevel === meta.level) return meta.name;
-  return `${meta.family} +${minLevel} or higher`;
+  const level = minLevel ?? meta.level;
+  const several = new Set(index.family(meta.family).map((m) => m.level)).size > 1;
+  if (exact && several) return `${meta.family} +${level} only`;
+  if (level === meta.level) return meta.name;
+  return `${meta.family} +${level} or higher`;
 }
 
 /** Relics a need counts (see `Need.relics`); 'auto' = by the kind of the matching effect. */
@@ -265,7 +274,8 @@ function rollSuffix(need: ComboNeed): string {
 
 function needLabel(need: Need, index: EffectIndex): string {
   if (need.kind === 'combo') {
-    const label = (id: number) => memberLabel(index, id, need.minLevels?.[id]);
+    const label = (id: number) =>
+      memberLabel(index, id, need.minLevels?.[id], isExactLevel(need, id));
     return comboSlots(need)
       .map((slot) =>
         slot.length === 1 ? label(slot[0] as number) : `any of (${slot.map(label).join(' / ')})`,
@@ -273,7 +283,7 @@ function needLabel(need: Need, index: EffectIndex): string {
       .join(' + ')
       .concat(rollSuffix(need));
   }
-  return memberLabel(index, need.effect, need.minLevel);
+  return memberLabel(index, need.effect, need.minLevel, need.exactLevel);
 }
 
 /** The effect id of `meta`'s family at `level` (same pool), for strength ratios. */
@@ -294,6 +304,8 @@ function matchEffect(
   effects: number[],
   /** "Auto" relics: only effects of the wanted one's kind (normal / deep) count. */
   sameKind: boolean,
+  /** Only `minLevel` itself counts: no higher level, no lower backups. */
+  exact = false,
 ): Match | null {
   let best: Match | null = null;
   const wantedId = effectAtLevel(index, wanted, minLevel);
@@ -302,6 +314,7 @@ function matchEffect(
     // Families already keep different effects apart (same-named normal / deep ones are split);
     // which relics count is the need's `relics` setting.
     if (!meta || meta.family !== wanted.family || (sameKind && !poolsMatch(meta, wanted))) continue;
+    if (exact && meta.level !== minLevel) continue;
     const m: Match =
       meta.level >= minLevel
         ? {
@@ -350,7 +363,14 @@ function matchNeed(
         ? { full: true, weight: 1, effect: need.effect, levels: [0], surplus: 0 }
         : null;
     }
-    return matchEffect(index, meta, need.minLevel ?? meta.level, effects, !need.relics);
+    return matchEffect(
+      index,
+      meta,
+      need.minLevel ?? meta.level,
+      effects,
+      !need.relics,
+      need.exactLevel,
+    );
   }
   let total = 0;
   let allFull = true;
@@ -363,7 +383,14 @@ function matchNeed(
     for (const id of slot) {
       const meta = index.meta(id);
       const m = meta
-        ? matchEffect(index, meta, need.minLevels?.[id] ?? meta.level, effects, !need.relics)
+        ? matchEffect(
+            index,
+            meta,
+            need.minLevels?.[id] ?? meta.level,
+            effects,
+            !need.relics,
+            isExactLevel(need, id),
+          )
         : effects.includes(id)
           ? { full: true, weight: 1, effect: id, levels: [0], surplus: 0 }
           : null;

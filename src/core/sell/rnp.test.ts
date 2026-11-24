@@ -56,6 +56,7 @@ describe('.rsp files', () => {
       effects: [7044600],
       anyOf: [[6611302, 6001601, 6610802]],
       minLevels: { 6001601: 1 },
+      exactLevels: [6001601],
       relics: 'any',
       copies: 3,
       colorScope: 'perColor',
@@ -64,7 +65,26 @@ describe('.rsp files', () => {
     const text = serializeRnp(config);
     expect(parseRnp(text).config).toEqual(config);
     const any = JSON.parse(text).groups[0].needs.at(-1).anyOf[0];
-    expect(any[1]).toEqual({ id: 6001601, name: 'Fire Attack Power Up +4', minLevel: 1 });
+    expect(any[1]).toEqual({
+      id: 6001601,
+      name: 'Fire Attack Power Up +4',
+      minLevel: 1,
+      exact: true,
+    });
+  });
+
+  it('round-trips "+N only" on single effects', () => {
+    const config = sample();
+    config.groups[0]?.needs.push({
+      kind: 'effect',
+      effect: 6090000,
+      minLevel: 1,
+      exactLevel: true,
+      copies: 1,
+      colorScope: 'any',
+      importance: 'high',
+    });
+    expect(parseRnp(serializeRnp(config)).config).toEqual(config);
   });
 
   it('writes names next to ids so the file is readable', () => {

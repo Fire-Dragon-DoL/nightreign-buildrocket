@@ -41,11 +41,14 @@ interface Named {
 interface NeedJson {
   kind: 'effect' | 'combo';
   effect?: Named;
-  effects?: (Named & { minLevel?: number })[];
+  /** `exact`: only `minLevel` itself counts. */
+  effects?: (Named & { minLevel?: number; exact?: boolean })[];
   /** Combo slots filled by any one of their effects. */
-  anyOf?: (Named & { minLevel?: number })[][];
+  anyOf?: (Named & { minLevel?: number; exact?: boolean })[][];
   relics?: RelicKind;
   minLevel?: number;
+  /** Only `minLevel` itself counts. */
+  exactLevel?: boolean;
   copies: number;
   colorScope: ColorScope;
   colors?: ColorName[];
@@ -79,7 +82,12 @@ const entries = <V>(record: Record<number, V>) =>
 function needToJson(need: Need): NeedJson {
   const member = (id: number) => {
     const minLevel = need.kind === 'combo' ? need.minLevels?.[id] : undefined;
-    return minLevel === undefined ? effect(id) : { ...effect(id), minLevel };
+    const exact = need.kind === 'combo' && need.exactLevels?.includes(id);
+    return {
+      ...effect(id),
+      ...(minLevel === undefined ? {} : { minLevel }),
+      ...(exact ? { exact: true } : {}),
+    };
   };
   const json: NeedJson =
     need.kind === 'effect'
@@ -99,6 +107,7 @@ function needToJson(need: Need): NeedJson {
           importance: need.importance,
         };
   if (need.kind === 'effect' && need.minLevel !== undefined) json.minLevel = need.minLevel;
+  if (need.kind === 'effect' && need.exactLevel) json.exactLevel = true;
   if (need.colors) json.colors = [...need.colors];
   if (need.relics) json.relics = need.relics;
   if (need.curseOverrides && Object.keys(need.curseOverrides).length > 0) {
@@ -195,6 +204,7 @@ function needFromJson(value: unknown): Need {
       if (typeof n.minLevel !== 'number') throw new RnpError('Invalid minimum level.');
       need.minLevel = n.minLevel;
     }
+    if (n.exactLevel === true) need.exactLevel = true;
     return need;
   }
   if (n.kind === 'combo') {
@@ -205,7 +215,9 @@ function needFromJson(value: unknown): Need {
       list(slot, 'combo "any of" slot').map((e) => idOf(e, 'combo effect')),
     );
     const minLevels: Record<number, number> = {};
+    const exactLevels: number[] = [];
     for (const m of [...members, ...slots.flatMap((slot) => slot as unknown[])]) {
+      if ((m as { exact?: unknown }).exact === true) exactLevels.push(idOf(m, 'combo effect'));
       const level = (m as { minLevel?: unknown }).minLevel;
       if (level === undefined) continue;
       if (typeof level !== 'number') throw new RnpError('Invalid combo minimum level.');
@@ -218,6 +230,7 @@ function needFromJson(value: unknown): Need {
     const combo: Need = { kind: 'combo', effects, ...base, ...extra };
     if (anyOf.length > 0) combo.anyOf = anyOf;
     if (Object.keys(minLevels).length > 0) combo.minLevels = minLevels;
+    if (exactLevels.length > 0) combo.exactLevels = exactLevels;
     return combo;
   }
   throw new RnpError(`Unknown need kind: ${String(n.kind)}.`);
@@ -289,6 +302,17 @@ export function parseRnp(text: string): ParsedRnp {
             ...n,
             effects: n.effects.map(canonical),
             ...(n.anyOf ? { anyOf: n.anyOf.map((slot) => slot.map(canonical)) } : {}),
+            // Per-member settings follow their member to its canonical id.
+            ...(n.minLevels
+              ? {
+                  minLevels: Object.fromEntries(
+                    entries(n.minLevels).map(([id, l]) => [catalog().canonicalEffect(id), l]),
+                  ),
+                }
+              : {}),
+            ...(n.exactLevels
+              ? { exactLevels: n.exactLevels.map((id) => catalog().canonicalEffect(id)) }
+              : {}),
           },
     );
   }

@@ -454,3 +454,45 @@ describe('combos with "any of" slots', () => {
     expect(plan.sell[0]?.verdict).toBe('spares');
   });
 });
+
+describe('exact levels ("+N only")', () => {
+  const PHYS_0 = 7001400;
+  const PHYS_2 = 7001402;
+  const ART_0 = 7090000; // Defeating enemies fills more of the Art gauge
+  const ART_1 = 6090000; // … +1
+  // Physical (highest kept) with the Art gauge effect at +0 only, and another relic with it at +1
+  // only: two +1 relics wouldn't stack in one build, a +0 and a +1 do.
+  const combo = (art: number, level: number): Need => ({
+    kind: 'combo',
+    effects: [PHYS_2, art],
+    minLevels: { [PHYS_2]: 0, [art]: level },
+    exactLevels: [art],
+    relics: 'any',
+    copies: 1,
+    colorScope: 'any',
+    importance: 'mustKeep',
+  });
+  const plan = (relics: RelicSpec[]) =>
+    planSell(relics, config([combo(ART_1, 0), combo(ART_1, 1)]));
+
+  it('says "only" in the label', () => {
+    const p = plan([]);
+    expect(p.needs.map((n) => n.label)).toEqual([
+      'Physical Attack Up +0 or higher + Defeating enemies fills more of the Art gauge +0 only (good roll)',
+      'Physical Attack Up +0 or higher + Defeating enemies fills more of the Art gauge +1 only (good roll)',
+    ]);
+  });
+
+  it('keeps one relic per level, never one relic for both', () => {
+    const p = plan([relic(DEEP_RED, [PHYS_2, ART_1]), relic(DEEP_RED, [PHYS_0, ART_0])]);
+    expect(p.needs.map((n) => n.full)).toEqual([1, 1]);
+    expect(p.sell).toHaveLength(0);
+  });
+
+  it('another level of the member never makes a full copy', () => {
+    const p = plan([relic(DEEP_RED, [PHYS_2, ART_1]), relic(DEEP_RED, [PHYS_2, ART_1])]);
+    // Two +1 relics fill the +1 combo; the +0 one stays short (Physical alone is a weak partial).
+    expect(p.needs.map((n) => n.full)).toEqual([0, 2]);
+    expect(p.needs[0]?.coverage).toBeLessThan(1);
+  });
+});

@@ -146,34 +146,46 @@ export function GroupsTab({
 }
 
 /** Lowest level that counts, for effects with several levels ("+1 or higher"). */
+/**
+ * Which levels count: "+N or higher" (lower ones are weak backups), or "+N only" for effects that
+ * don't stack with themselves, so two relics can carry different levels (+0 on one, +1 on another).
+ */
 function LevelSelect({
   index,
   id,
   value,
+  exact,
   onChange,
 }: {
   index: EffectIndex;
   id: number;
   value: number | undefined;
-  onChange: (level: number) => void;
+  exact: boolean;
+  onChange: (level: number, exact: boolean) => void;
 }) {
   const meta = index.meta(id);
   if (!meta) return null;
-  const levels = [...new Set(index.family(meta.family).map((m) => m.level))];
+  const levels = [...new Set(index.family(meta.family).map((m) => m.level))].sort((a, b) => a - b);
   if (levels.length < 2) return null;
   const max = Math.max(...levels);
+  const current = value ?? meta.level;
+  // "Only" also drops the weak backups lower levels give.
   return (
     <select
       className="level-select"
-      value={value ?? meta.level}
+      value={`${current}${exact ? '=' : ''}`}
       data-testid="need-level"
-      onChange={(e) => onChange(Number(e.target.value))}
+      title="Or higher: the highest you own counts first. Only: just that level (use it to keep different levels of an effect that doesn't stack with itself)"
+      onChange={(e) => onChange(Number.parseInt(e.target.value, 10), e.target.value.endsWith('='))}
     >
       {levels.map((l) => (
-        <option key={l} value={l}>
-          +{l}
-          {l < max ? ' or higher' : ''}
-        </option>
+        <optgroup key={l} label={`+${l}`}>
+          <option value={l}>
+            +{l}
+            {l < max ? ' or higher' : ''}
+          </option>
+          <option value={`${l}=`}>+{l} only</option>
+        </optgroup>
       ))}
     </select>
   );
@@ -211,17 +223,21 @@ function ComboMember({
         index={index}
         id={id}
         value={need.minLevels?.[id]}
-        onChange={(level) =>
-          edit((n) =>
-            n.kind === 'combo'
-              ? {
-                  ...n,
-                  minLevels: { ...n.minLevels, [id]: level },
-                  // Lower levels may live on the other kind of relic.
-                  relics: n.relics ?? 'any',
-                }
-              : n,
-          )
+        exact={need.exactLevels?.includes(id) ?? false}
+        onChange={(level, exact) =>
+          edit((n) => {
+            if (n.kind !== 'combo') return n;
+            const others = (n.exactLevels ?? []).filter((x) => x !== id);
+            const exactLevels = exact ? [...others, id] : others;
+            const { exactLevels: _old, ...rest } = n;
+            return {
+              ...rest,
+              minLevels: { ...n.minLevels, [id]: level },
+              ...(exactLevels.length ? { exactLevels } : {}),
+              // Lower levels may live on the other kind of relic.
+              relics: n.relics ?? 'any',
+            };
+          })
         }
       />
       {onRemove && (
@@ -444,7 +460,20 @@ function GroupCard({
                           index={index}
                           id={need.effect}
                           value={need.minLevel}
-                          onChange={(minLevel) => setNeed(ni, { minLevel })}
+                          exact={need.exactLevel === true}
+                          onChange={(minLevel, exact) =>
+                            update((c) =>
+                              updateNeed(c, groupIndex, ni, (n) => {
+                                if (n.kind !== 'effect') return n;
+                                const { exactLevel: _old, ...rest } = n;
+                                return {
+                                  ...rest,
+                                  minLevel,
+                                  ...(exact ? { exactLevel: true } : {}),
+                                };
+                              }),
+                            )
+                          }
                         />
                       )}
                     </td>
