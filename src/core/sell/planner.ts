@@ -48,7 +48,7 @@ export const PARTIAL_COMBO_FACTOR = 0.75;
 /** Risk shown for relics flagged as possible godrolls. */
 export const GODROLL_RISK = 60;
 
-const IMPORTANCE_WEIGHT: Record<Importance, number> = {
+export const IMPORTANCE_WEIGHT: Record<Importance, number> = {
   ignore: 0,
   low: 1,
   normal: 2,
@@ -71,7 +71,7 @@ const SPARE_RISK: Record<Importance, number> = {
   high: 35,
   mustKeep: 50,
 };
-const CURSE_VALUE: Record<CursePenalty, number> = { fine: 0, annoying: 0.5, dealbreaker: 1 };
+export const CURSE_VALUE: Record<CursePenalty, number> = { fine: 0, annoying: 0.5, dealbreaker: 1 };
 const EPS = 1e-9;
 
 export type SellFlag = 'godroll' | 'stackingUnknown';
@@ -174,7 +174,7 @@ export interface SellPlan {
 
 export type ProgressCallback = (done: number, total: number) => void;
 
-interface Unit {
+export interface Unit {
   index: number;
   spec: RelicSpec;
   key: string;
@@ -192,7 +192,7 @@ interface Unit {
   covers: number;
 }
 
-interface Contribution {
+export interface Contribution {
   bucket: Bucket;
   unit: Unit;
   full: boolean;
@@ -205,12 +205,13 @@ interface Contribution {
   surplus: number;
 }
 
-interface Bucket {
+export interface Bucket {
   group: string;
   label: string;
   color: ColorName | null;
   importance: Importance;
   target: number;
+  need: Need;
   members: Contribution[];
   /** Coverage cache, cleared when a member is sold. */
   current: number | undefined;
@@ -236,7 +237,7 @@ const poolsMatch = (a: EffectMeta, b: EffectMeta) =>
   a.pool === b.pool || a.pool === 'any' || b.pool === 'any';
 
 /** Effects and curses of a relic (curses can be wanted too). */
-const relicEffects = (spec: RelicSpec): number[] =>
+export const relicEffects = (spec: RelicSpec): number[] =>
   [...spec.effects, ...spec.curses].filter((e): e is number => e !== null);
 
 /** A member's name, or "Family +N or higher" when a lower level is allowed. */
@@ -387,7 +388,7 @@ function matchNeed(
  * stacks with what is already counted). Backups never add up to replace a
  * copy, and they are worth nothing while the target is met. `skip` is left out.
  */
-function coverage(bucket: Bucket, index: EffectIndex, skip?: Contribution): number {
+export function coverage(bucket: Bucket, index: EffectIndex, skip?: Contribution): number {
   let full = 0;
   const counted = new Set<number>();
   const backups: Contribution[] = [];
@@ -585,11 +586,19 @@ export interface PlanOptions {
   onProgress?: ProgressCallback;
 }
 
-export function planSell(
-  pool: RelicSpec[],
-  config: SellConfig,
-  options: PlanOptions = {},
-): SellPlan {
+/** Relics and needs, matched: what both the Sell Planner and Secondary Pool Picks count with. */
+export interface PoolModel {
+  index: EffectIndex;
+  units: Unit[];
+  buckets: Bucket[];
+  byUnit: Map<Unit, Map<Bucket, Contribution>>;
+  /** Families the plan ignores on purpose. */
+  ignoredFamilies: Set<string>;
+  warnings: string[];
+}
+
+/** Match every relic of `pool` against every need of `config` (one bucket per need and color). */
+export function buildPoolModel(pool: RelicSpec[], config: SellConfig): PoolModel {
   const index = buildEffectIndex(effectiveRules(config.effectRules));
   const rules = rollRules();
   const neverSell = new Set(config.neverSell);
@@ -632,6 +641,7 @@ export function planSell(
         color,
         importance: need.importance,
         target: need.copies,
+        need,
         members: [],
         current: undefined,
         without: new Map(),
@@ -683,6 +693,15 @@ export function planSell(
       unit.godroll = looksLikeGodroll(unit.spec, index, config, ignoredFamilies);
     }
   }
+  return { index, units, buckets, byUnit, ignoredFamilies, warnings };
+}
+
+export function planSell(
+  pool: RelicSpec[],
+  config: SellConfig,
+  options: PlanOptions = {},
+): SellPlan {
+  const { index, units, buckets, byUnit, ignoredFamilies, warnings } = buildPoolModel(pool, config);
 
   const alive = new Map<string, number>();
   for (const u of units) alive.set(u.key, (alive.get(u.key) ?? 0) + 1);
@@ -863,4 +882,4 @@ export function looksLikeGodroll(
 }
 
 /** "Group › " for needs from older plans' named groups; nothing for the one list. */
-const groupPrefix = (group: string) => (group === DEFAULT_GROUP ? '' : `${group} › `);
+export const groupPrefix = (group: string) => (group === DEFAULT_GROUP ? '' : `${group} › `);
