@@ -74,7 +74,8 @@ reuse it; it holds only effects and rules, never anything from your save.
 one (another character, or a friend's save or JSON) as _Secondary Pool_, then
 choose the plan: the one open in the Sell Planner, or a saved `.rsp`. The
 Secondary Pool is treated as a copy of the Relic Pool that drifted apart: each
-Relic Pool relic sets aside one identical Secondary copy (2 red Fire +2 on the
+Relic Pool relic sets aside one matching Secondary copy (same color, deep or
+normal, slot count, effects and curses; the name doesn't matter) (2 red Fire +2 on the
 left and 3 on the right leave 1 available), so only relics really earned on the
 other side are considered. With the
 Sell Planner's counting rules (colors must match, dealbreaker curses don't count,

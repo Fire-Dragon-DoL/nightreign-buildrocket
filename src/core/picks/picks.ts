@@ -4,8 +4,8 @@
  *
  * The Secondary Pool is assumed to be a copy of the Relic Pool that drifted apart, so first the
  * relics both have are set aside: each Relic Pool relic removes one Secondary copy that looks the
- * same in game (`lookKey`: name, color, kind, size and effects with their curses, in any order and
- * by canonical id), even when the item ids differ (many ids share one name, color and size).
+ * same (`lookKey`: color, deep or normal, slot count, and effects with their curses, in any order
+ * and by canonical id). The relic's name and item id are ignored.
  * Only what is left (the available pool: relics really earned on the other side) is considered.
  *
  * Counting is the Sell Planner's (same buckets, colors, levels, backups,
@@ -46,8 +46,8 @@ import {
 const EPS = 1e-9;
 
 /**
- * What the game shows of a relic: name, color, kind and size, and each effect with its curse
- * (aliases as their canonical effect, in any order). Relics with the same key look identical.
+ * How relics are matched across pools: color, deep or normal, slot count, and each effect with its
+ * curse (aliases as their canonical effect, in any order). Name and item id don't matter.
  */
 export function lookKey(spec: RelicSpec): string {
   const info = catalog().relic(spec.itemId);
@@ -57,7 +57,7 @@ export function lookKey(spec: RelicSpec): string {
     .filter((p) => p !== '-/-')
     .sort();
   const head = info
-    ? `${info.name}|${info.color}|${info.deep ? 'D' : 'N'}|${rollRules().slotCount(spec.itemId)}`
+    ? `${info.color}|${info.deep ? 'D' : 'N'}|${rollRules().slotCount(spec.itemId)}`
     : `#${spec.itemId}`;
   return `${head}|${pairs.join(',')}`;
 }
