@@ -72,14 +72,18 @@ reuse it; it holds only effects and rules, never anything from your save.
 
 **Secondary Pool Picks:** open the pool you play on as _Relic Pool_ and another
 one (another character, or a friend's save or JSON) as _Secondary Pool_, then
-choose the plan: the one open in the Sell Planner, or a saved `.rsp`. With the
+choose the plan: the one open in the Sell Planner, or a saved `.rsp`. The
+Secondary Pool is treated as a copy of the Relic Pool that drifted apart: each
+Relic Pool relic sets aside one identical Secondary copy (2 red Fire +2 on the
+left and 3 on the right leave 1 available), so only relics really earned on the
+other side are considered. With the
 Sell Planner's counting rules (colors must match, dealbreaker curses don't count,
 lower levels are backups, relics the game won't sell count too), it lists:
 
-- **Fills what you lack:** the fewest Secondary relics that bring every need your
+- **Fills what you lack:** the fewest available relics that bring every need your
   Relic Pool is short of up to its copies, each with what it fills (have → with
   picks, wanted). Needs the Secondary Pool can't fill either stay marked short.
-- **Upgrades:** Secondary relics better than a copy your Relic Pool counts for a
+- **Upgrades:** available relics better than a copy your Relic Pool counts for a
   need that is already met: a higher level, or the same levels with milder curses.
 - **Possible godrolls:** relics your plan doesn't mention that look rare, unless
   your Relic Pool has the same relic.

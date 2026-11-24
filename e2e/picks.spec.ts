@@ -32,7 +32,7 @@ async function writeTemp(name: string, data: Uint8Array | string): Promise<strin
   return path;
 }
 
-/** Slot 0 ("Main") has one Magic +2 relic; slot 1 ("Alt") has three more and a godroll. */
+/** Slot 0 ("Main") has one Magic +2 relic; slot 1 ("Alt") has the same plus two more and a godroll. */
 const save = async () =>
   writeTemp(
     'pools.sl2',
@@ -96,7 +96,9 @@ test('picks secondary pool relics for the sell plan, from the planner or a file'
   await expect(page.getByTestId('picks-plan-planner')).toBeChecked();
   await expect(page.getByTestId('picks-summary')).toContainText('take 2 relic(s)');
   await expect(page.getByTestId('pick-row')).toHaveCount(1);
-  await expect(page.getByTestId('pick-row')).toContainText('2 of 3');
+  await expect(page.getByTestId('pick-row')).toContainText('2 of 2');
+  // Main's one copy is set aside from Alt: 2 Magic relics and the godroll are really new.
+  await expect(page.getByTestId('picks-available')).toContainText('Available pool: 3 relic(s); 1');
   await expect(page.getByTestId('pick-row')).toContainText('plan wants 3');
   await expect(page.getByTestId('godroll-row')).toHaveCount(1);
 

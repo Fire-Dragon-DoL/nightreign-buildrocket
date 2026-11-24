@@ -196,10 +196,13 @@ export function SecondaryPicks() {
         Find relics worth bringing over from another pool. Load the pool you play on as{' '}
         <b>Relic Pool</b> and the other one as <b>Secondary Pool</b> (a save or builds JSON each,
         then pick a character), and choose a <b>plan</b>: the one open in the Sell Planner, or a
-        saved .rsp. Needs your Relic Pool is short of get the <b>fewest</b> Secondary relics that
-        fill them, with the same rules as the Sell Planner (colors must match, dealbreaker curses
-        don't count, lower levels are backups). Below that: <b>upgrades</b> (better than a copy you
-        count) and <b>possible godrolls</b> your plan doesn't mention.
+        saved .rsp. The Secondary Pool is treated as a copy of your Relic Pool that drifted apart:
+        every relic your Relic Pool has removes one identical copy from it, and only what's left
+        (the <b>available pool</b>, relics really earned on that side) is considered. Needs your
+        Relic Pool is short of get the <b>fewest</b> available relics that fill them, with the same
+        rules as the Sell Planner (colors must match, dealbreaker curses don't count, lower levels
+        are backups). Below that: <b>upgrades</b> (better than a copy you count) and{' '}
+        <b>possible godrolls</b> your plan doesn't mention.
       </p>
       <section className="loaders loaders--pair">
         <FileSourcePicker source={mainSource} label="Relic Pool" testId="picks-main" />
@@ -354,6 +357,10 @@ function PicksView({
           Export CSV
         </button>
       </div>
+      <p className="muted" data-testid="picks-available">
+        Available pool: <b>{result.availableCount}</b> relic(s); {result.shared} Secondary relic(s)
+        set aside because your Relic Pool has the same copy.
+      </p>
       {result.skippedUnique > 0 && (
         <p className="muted">
           {result.skippedUnique} unique relic(s) in the Secondary Pool skipped: your Relic Pool has
