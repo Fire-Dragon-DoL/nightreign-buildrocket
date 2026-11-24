@@ -15,7 +15,8 @@ no install, and your save never leaves your computer.
    per color and which combinations (optionally derived from your builds),
    and get a list of relics that are safe to sell.
 
-Status: all three work: Builds Viewer, Relics Needs and Sell Planner.
+Status: all three work: Builds Viewer, Relics Needs and Sell Planner, plus
+Secondary Pool Picks (relics worth bringing over from another pool).
 
 ## Using it
 
@@ -68,6 +69,23 @@ is safe in the order shown. Relics the game won't let you sell aren't listed
 but still count toward your needs. Relics nothing in your plan wants but that
 look rare are flagged _possible godroll_. Save the plan as a `.rsp` file to
 reuse it; it holds only effects and rules, never anything from your save.
+
+**Secondary Pool Picks:** open the pool you play on as _Relic Pool_ and another
+one (another character, or a friend's save or JSON) as _Secondary Pool_, then
+choose the plan: the one open in the Sell Planner, or a saved `.rsp`. With the
+Sell Planner's counting rules (colors must match, dealbreaker curses don't count,
+lower levels are backups, relics the game won't sell count too), it lists:
+
+- **Fills what you lack:** the fewest Secondary relics that bring every need your
+  Relic Pool is short of up to its copies, each with what it fills (have → with
+  picks, wanted). Needs the Secondary Pool can't fill either stay marked short.
+- **Upgrades:** Secondary relics better than a copy your Relic Pool counts for a
+  need that is already met: a higher level, or the same levels with milder curses.
+- **Possible godrolls:** relics your plan doesn't mention that look rare, unless
+  your Relic Pool has the same relic.
+
+Unique relics your Relic Pool already has are skipped. _Export CSV_ writes the
+three lists with names and ids.
 _Export CSV_ writes the list sorted by risk.
 
 Only PC saves are supported for now.
