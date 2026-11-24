@@ -4,6 +4,6 @@ export * from './effects.ts';
 export * from './needs.ts';
 export * from './owned.ts';
 export * from './planner.ts';
-export * from './rsp.ts';
+export * from './rnp.ts';
 export * from './sections.ts';
 export * from './seed.ts';

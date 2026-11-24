@@ -81,8 +81,8 @@ test('picks secondary pool relics for the sell plan, from the planner or a file'
   const row = page.getByTestId('effect-row').filter({ hasText: 'Magic Attack Power Up +2' });
   await row.getByTestId('effect-importance').selectOption('mustKeep');
   await row.getByTestId('effect-copies').fill('3');
-  await page.getByTestId('rsp-save').click();
-  await expect(page.getByTestId('rsp-message')).toContainText('Saved');
+  await page.getByTestId('rnp-save').click();
+  await expect(page.getByTestId('rnp-message')).toContainText('Saved');
   const rsp = await lastWritten(page);
 
   await page.getByRole('link', { name: 'Secondary Pool Picks' }).click();
@@ -113,7 +113,7 @@ test('picks secondary pool relics for the sell plan, from the planner or a file'
   await expect(dialog.getByTestId('builder-chip')).toHaveCount(3);
   await dialog.getByTestId('group-combo-effect').press('Enter');
   await expect(dialog).toBeHidden();
-  await expect(page.getByTestId('picks-rsp-message')).toContainText("Sell Planner's plan");
+  await expect(page.getByTestId('picks-rnp-message')).toContainText("Sell Planner's plan");
   // Now wanted: it becomes a pick, and the planner's plan is marked changed.
   await expect(page.getByTestId('godroll-row')).toHaveCount(0);
   await expect(page.getByTestId('pick-row')).toHaveCount(2);
@@ -121,20 +121,22 @@ test('picks secondary pool relics for the sell plan, from the planner or a file'
 
   // Another plan: clear the planner's, then load the saved one here.
   await page.getByRole('link', { name: 'Sell Planner' }).click();
+  // It has unsaved changes: New asks first.
+  page.once('dialog', (d) => void d.accept());
   await page.getByRole('button', { name: 'New', exact: true }).click();
   await page.getByRole('link', { name: 'Secondary Pool Picks' }).click();
   await expect(page.getByTestId('picks-summary')).toContainText('already has everything');
   await page.getByTestId('picks-plan-file').check();
-  await page.getByTestId('picks-rsp-input').setInputFiles(await writeTemp('plan.rsp', rsp));
-  await expect(page.getByTestId('picks-rsp-message')).toContainText('Loaded plan.rsp');
+  await page.getByTestId('picks-rnp-input').setInputFiles(await writeTemp('plan.rsp', rsp));
+  await expect(page.getByTestId('picks-rnp-message')).toContainText('Loaded plan.rsp');
   await expect(page.getByTestId('picks-summary')).toContainText('take 2 relic(s)');
 
   // Combos added here go to the loaded plan, which can be saved from this page.
   await page.getByTestId('godroll-row').getByTestId('copy-to-builder').click();
   await page.getByTestId('picks-combo-dialog').getByTestId('group-combo-effect').press('Enter');
-  await expect(page.getByTestId('picks-rsp-message')).toContainText('Added the combo to plan.rsp');
+  await expect(page.getByTestId('picks-rnp-message')).toContainText('Added the combo to plan.rsp');
   await expect(page.getByTestId('picks-plan')).toContainText('plan.rsp (changed) · 2 need(s)');
-  await page.getByTestId('picks-rsp-save').click();
-  await expect(page.getByTestId('picks-rsp-message')).toContainText('Saved plan.rsp');
+  await page.getByTestId('picks-rnp-save').click();
+  await expect(page.getByTestId('picks-rnp-message')).toContainText('Saved plan.rnp');
   expect(JSON.parse(await lastWritten(page)).groups[0].needs).toHaveLength(2);
 });

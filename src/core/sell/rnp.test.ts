@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { effectiveRules, emptyConfig, type SellConfig } from './config.ts';
 import { defaultEffectRules } from './effects.ts';
-import { parseRsp, RSP_FORMAT, RspError, serializeRsp } from './rsp.ts';
+import { parseRnp, RNP_FORMAT, RnpError, serializeRnp } from './rnp.ts';
 
 const sample = (): SellConfig => ({
   effectRules: {
@@ -43,8 +43,8 @@ const sample = (): SellConfig => ({
 
 describe('.rsp files', () => {
   it('round-trips a config', () => {
-    const text = serializeRsp(sample(), new Date('2026-11-21T00:00:00Z'));
-    const parsed = parseRsp(text);
+    const text = serializeRnp(sample(), new Date('2026-11-21T00:00:00Z'));
+    const parsed = parseRnp(text);
     expect(parsed.config).toEqual(sample());
     expect(parsed.warnings).toEqual([]);
   });
@@ -61,15 +61,15 @@ describe('.rsp files', () => {
       colorScope: 'perColor',
       importance: 'mustKeep',
     });
-    const text = serializeRsp(config);
-    expect(parseRsp(text).config).toEqual(config);
+    const text = serializeRnp(config);
+    expect(parseRnp(text).config).toEqual(config);
     const any = JSON.parse(text).groups[0].needs.at(-1).anyOf[0];
     expect(any[1]).toEqual({ id: 6001601, name: 'Fire Attack Power Up +4', minLevel: 1 });
   });
 
   it('writes names next to ids so the file is readable', () => {
-    const doc = JSON.parse(serializeRsp(sample()));
-    expect(doc.format).toBe(RSP_FORMAT);
+    const doc = JSON.parse(serializeRnp(sample()));
+    expect(doc.format).toBe(RNP_FORMAT);
     expect(doc.version).toBe(1);
     expect(doc.groups[0].needs[1].effect).toEqual({
       id: 7001502,
@@ -78,7 +78,7 @@ describe('.rsp files', () => {
     expect(doc.neverSell[0].name).toBe('Grand Burning Scene');
   });
 
-  it('loads plans saved by earlier builds (no Relics setting, no combo levels)', () => {
+  it('loads .rsp plans saved by earlier builds (no Relics setting, no combo levels)', () => {
     const old = {
       format: 'buildrocket-rsp',
       version: 1,
@@ -109,7 +109,7 @@ describe('.rsp files', () => {
       ],
       neverSell: [],
     };
-    const parsed = parseRsp(JSON.stringify(old));
+    const parsed = parseRnp(JSON.stringify(old));
     expect(parsed.warnings).toEqual([]);
     const [combo, single] = parsed.config.groups[0]?.needs ?? [];
     expect(combo).toEqual({
@@ -123,11 +123,11 @@ describe('.rsp files', () => {
     });
     expect(single).not.toHaveProperty('relics');
     // Saving it again doesn't invent settings.
-    expect(JSON.parse(serializeRsp(parsed.config)).groups[0].needs[1]).not.toHaveProperty('relics');
+    expect(JSON.parse(serializeRnp(parsed.config)).groups[0].needs[1]).not.toHaveProperty('relics');
   });
 
   it('keeps unknown ids and warns about them', () => {
-    const doc = JSON.parse(serializeRsp(emptyConfig()));
+    const doc = JSON.parse(serializeRnp(emptyConfig()));
     doc.groups = [
       {
         name: 'x',
@@ -136,17 +136,17 @@ describe('.rsp files', () => {
         ],
       },
     ];
-    const parsed = parseRsp(JSON.stringify(doc));
+    const parsed = parseRnp(JSON.stringify(doc));
     expect(parsed.config.groups[0]?.needs[0]).toMatchObject({ effect: 1 });
     expect(parsed.warnings).toEqual(['Unknown effect id 1 (kept as is).']);
   });
 
   it('rejects other files and invalid values', () => {
-    expect(() => parseRsp('nope')).toThrow(RspError);
-    expect(() => parseRsp('{"format":"x"}')).toThrow('Not a Buildrocket sell plan');
-    const doc = JSON.parse(serializeRsp(sample()));
+    expect(() => parseRnp('nope')).toThrow(RnpError);
+    expect(() => parseRnp('{"format":"x"}')).toThrow('Not a Buildrocket relic needs plan');
+    const doc = JSON.parse(serializeRnp(sample()));
     doc.groups[0].needs[0].importance = 'very';
-    expect(() => parseRsp(JSON.stringify(doc))).toThrow('Invalid importance');
+    expect(() => parseRnp(JSON.stringify(doc))).toThrow('Invalid importance');
   });
 });
 

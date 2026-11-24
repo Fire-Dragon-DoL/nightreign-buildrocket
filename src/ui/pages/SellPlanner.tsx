@@ -7,16 +7,9 @@ import { buildEffectIndex } from '../../core/sell/effects.ts';
 import { withDefaultLevels } from '../../core/sell/needs.ts';
 import { ownedCounts } from '../../core/sell/owned.ts';
 import type { SellPlan } from '../../core/sell/planner.ts';
-import { parseRsp, serializeRsp } from '../../core/sell/rsp.ts';
+import { parseRnp } from '../../core/sell/rnp.ts';
 import type { SellSection } from '../../core/sell/sections.ts';
-import {
-  CSV_FILE_TYPE,
-  ensureWritable,
-  isAbortError,
-  RSP_FILE_TYPE,
-  saveTextFile,
-  writeTextFile,
-} from '../../storage/files.ts';
+import { CSV_FILE_TYPE, isAbortError, PLAN_OPEN_TYPE, saveTextFile } from '../../storage/files.ts';
 import { saveWorker } from '../../worker/client.ts';
 import { FileDrop } from '../components/FileDrop.tsx';
 import { FileSourcePicker } from '../components/FileSourcePicker.tsx';
@@ -28,9 +21,11 @@ import type { ConfigUpdate } from '../sell/configEdit.ts';
 import { addNeeds } from '../sell/configEdit.ts';
 import { EffectsTab } from '../sell/EffectsTab.tsx';
 import { GroupsTab } from '../sell/GroupsTab.tsx';
+import { canSaveInPlace, type PlanFile, savePlan, saveTargetText } from '../sell/planFile.ts';
 import { ResultsView } from '../sell/ResultsView.tsx';
 import { StackingTab } from '../sell/StackingTab.tsx';
 import { publishSellPlan } from '../sell/sharedPlan.ts';
+import { useUnsavedGuard } from '../unsaved.ts';
 import { useLoadedFile } from '../useLoadedFile.ts';
 
 type Tab = 'results' | 'normal' | 'deep' | 'groups' | 'stacking';
@@ -59,11 +54,9 @@ export function SellPlanner() {
   const owned = useMemo(() => (pool ? ownedCounts(pool) : null), [pool]);
 
   const [config, setConfig] = useState<SellConfig>(emptyConfig);
-  const [configFile, setConfigFile] = useState<{
-    name: string;
-    handle?: FileSystemFileHandle;
-  } | null>(null);
+  const [configFile, setConfigFile] = useState<PlanFile | null>(null);
   const [dirty, setDirty] = useState(false);
+  useUnsavedGuard('sell-plan', dirty);
   const [configMessage, setConfigMessage] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [tab, setTab] = useState<Tab>('results');
@@ -127,12 +120,14 @@ export function SellPlanner() {
     };
   }, [pool, config]);
 
-  const openConfig = async (file: File) => {
+  const openConfig = async (file: File, handle?: FileSystemFileHandle) => {
+    if (dirty && !window.confirm('Your plan has unsaved changes. Open another plan anyway?'))
+      return;
     try {
-      const parsed = parseRsp(await file.text());
+      const parsed = parseRnp(await file.text());
       setConfig(parsed.config);
       setWarnings(parsed.warnings);
-      setConfigFile({ name: file.name });
+      setConfigFile(handle ? { name: file.name, handle } : { name: file.name });
       setDirty(false);
       setConfigMessage(`Loaded ${file.name}.`);
     } catch (err) {
@@ -141,23 +136,11 @@ export function SellPlanner() {
   };
 
   const saveConfig = async (saveAs: boolean) => {
-    const text = serializeRsp(config);
     try {
-      if (!saveAs && configFile?.handle && (await ensureWritable(configFile.handle))) {
-        await writeTextFile(configFile.handle, text);
-        setConfigMessage(`Saved ${configFile.name}.`);
-      } else {
-        const name = configFile?.name ?? 'nightreign-sell-plan.rsp';
-        const handle = await saveTextFile(
-          text,
-          name.endsWith('.rsp') ? name : `${name}.rsp`,
-          RSP_FILE_TYPE,
-        );
-        const saved = handle?.name ?? name;
-        setConfigFile(handle ? { name: saved, handle } : { name: saved });
-        setConfigMessage(`Saved ${saved}.`);
-      }
+      const saved = await savePlan(config, configFile, saveAs);
+      setConfigFile(saved);
       setDirty(false);
+      setConfigMessage(`Saved ${saved.name}.`);
     } catch (err) {
       if (!isAbortError(err)) setConfigMessage(`Save failed: ${(err as Error).message}`);
     }
@@ -180,41 +163,60 @@ export function SellPlanner() {
   return (
     <>
       <p className="intro">
-        Find relics you can sell. Load your <b>save</b> (or a builds JSON) and a <b>sell plan</b>{' '}
-        (.rsp) saying what to keep, or build one here: give effects an importance and copies in the{' '}
-        <b>Normal</b> / <b>Deep of Night</b> tabs and add combos (effects wanted on the same relic)
-        in <b>Needs &amp; combos</b>. Effects you don't configure are worth nothing. A relic is
-        suggested only if everything your plan wants is still there without it, and each one says
-        why: nothing on it is wanted, a relic you keep covers it, or enough copies are left. Selling
-        everything above any line is safe in the order shown. Save the plan to reuse it after your
-        next runs.
+        Find relics you can sell. Load your <b>save</b> (or a builds JSON) and a{' '}
+        <b>relic needs plan</b> (.rnp) saying what to keep, or build one here: give effects an
+        importance and copies in the <b>Normal</b> / <b>Deep of Night</b> tabs and add combos
+        (effects wanted on the same relic) in <b>Needs &amp; combos</b>. Effects you don't configure
+        are worth nothing. A relic is suggested only if everything your plan wants is still there
+        without it, and each one says why: nothing on it is wanted, a relic you keep covers it, or
+        enough copies are left. Selling everything above any line is safe in the order shown. Save
+        the plan to reuse it after your next runs.
       </p>
       <section className="loaders loaders--pair">
         <FileSourcePicker source={source} label="Relics: save or builds JSON" testId="sell" />
         <div className="file-source">
           <FileDrop
-            label="Open sell plan (.rsp)"
-            hint="A plan saved from this page. Optional: you can start from scratch."
-            accept=".rsp,.json,application/json"
-            onFile={(file) => void openConfig(file)}
-            testId="rsp-input"
+            label="Open relic needs plan (.rnp)"
+            hint="A plan saved from this page (older .rsp plans open too). Optional: you can start from scratch."
+            accept=".rnp,.rsp,.json,application/json"
+            handleTypes={[PLAN_OPEN_TYPE]}
+            onFile={(file, handle) => void openConfig(file, handle)}
+            testId="rnp-input"
           />
           <div className="toolbar">
-            <span data-testid="rsp-status">
+            <span data-testid="rnp-status">
               {configFile ? configFile.name : 'Unsaved plan'}
               {dirty ? ' (changed)' : ''} · {needCount} need(s)
             </span>
             <div className="toolbar__spacer" />
-            <button type="button" onClick={() => void saveConfig(false)} data-testid="rsp-save">
-              Save plan
-            </button>
-            <button type="button" className="button--quiet" onClick={() => void saveConfig(true)}>
+            {canSaveInPlace() && (
+              <button
+                type="button"
+                onClick={() => void saveConfig(false)}
+                data-testid="rnp-save"
+                title={saveTargetText(configFile)}
+              >
+                Save plan
+              </button>
+            )}
+            <button
+              type="button"
+              className={canSaveInPlace() ? 'button--quiet' : undefined}
+              onClick={() => void saveConfig(true)}
+              data-testid="rnp-save-as"
+            >
               Save as…
             </button>
             <button
               type="button"
               className="button--quiet"
               onClick={() => {
+                if (
+                  dirty &&
+                  !window.confirm('Your plan has unsaved changes. Start a new one anyway?')
+                ) {
+                  return;
+                }
                 setConfig(emptyConfig());
                 setConfigFile(null);
                 setWarnings([]);
@@ -225,8 +227,11 @@ export function SellPlanner() {
               New
             </button>
           </div>
+          <span className="muted plan-target" data-testid="rnp-target">
+            {saveTargetText(configFile)}
+          </span>
           {configMessage && (
-            <span className="message" data-testid="rsp-message">
+            <span className="message" data-testid="rnp-message">
               {configMessage}
             </span>
           )}

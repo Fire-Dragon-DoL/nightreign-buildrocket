@@ -994,3 +994,8 @@ tr.need-row--drop-below > td {
   margin: 0;
   font-size: 1.05rem;
 }
+
+/* Where "Save" writes the plan. */
+.plan-target {
+  font-size: 0.85rem;
+}

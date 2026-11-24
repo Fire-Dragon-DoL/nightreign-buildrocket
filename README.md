@@ -67,12 +67,15 @@ size, from risk 0 (safe) to 99, with why it's safe or what it would hurt, and
 a suggested in-game search per group. Selling everything up to a given risk
 is safe in the order shown. Relics the game won't let you sell aren't listed
 but still count toward your needs. Relics nothing in your plan wants but that
-look rare are flagged _possible godroll_. Save the plan as a `.rsp` file to
-reuse it; it holds only effects and rules, never anything from your save.
+look rare are flagged _possible godroll_. Save the plan as a relic needs plan
+(`.rnp`) to reuse it; it holds only effects and rules, never anything from your
+save. In Chrome, _Save_ writes back to the file you opened or last saved (_Save
+as…_ always asks); other browsers download it each time. Plans saved before the
+rename (`.rsp`) still open. Closing the tab with unsaved changes asks first.
 
 **Secondary Pool Picks:** open the pool you play on as _Relic Pool_ and another
 one (another character, or a friend's save or JSON) as _Secondary Pool_, then
-choose the plan: the one open in the Sell Planner, or a saved `.rsp`. The
+choose the plan: the one open in the Sell Planner, or a saved `.rnp`. The
 Secondary Pool is treated as a copy of the Relic Pool that drifted apart: each
 Relic Pool relic sets aside one matching Secondary copy (same color, deep or
 normal, slot count, effects and curses; the name doesn't matter) (2 red Fire +2 on the
@@ -178,7 +181,7 @@ src/
     catalog/   relic / effect / vessel / hero data
     builds/    build extraction, JSON import/export, save-or-JSON loading
     compare/   missing relics between two characters, CSV export
-    sell/      sell planner: effect families, .rsp plans, risk ranking
+    sell/      sell planner: effect families, .rnp plans, risk ranking
   worker/      web worker + promise-based client
   storage/     files on disk (File System Access API)
   ui/          React components

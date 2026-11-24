@@ -15,9 +15,15 @@ export const CSV_FILE_TYPE: FilePickerAcceptType = {
   accept: { 'text/csv': ['.csv'] },
 };
 
-export const RSP_FILE_TYPE: FilePickerAcceptType = {
-  description: 'Buildrocket sell plan',
-  accept: { 'application/json': ['.rsp'] },
+export const RNP_FILE_TYPE: FilePickerAcceptType = {
+  description: 'Buildrocket relic needs plan',
+  accept: { 'application/json': ['.rnp'] },
+};
+
+/** Plans to open: current `.rnp` files and `.rsp` files saved before the rename. */
+export const PLAN_OPEN_TYPE: FilePickerAcceptType = {
+  description: 'Buildrocket relic needs plan',
+  accept: { 'application/json': ['.rnp', '.rsp', '.json'] },
 };
 
 export function isAbortError(err: unknown): boolean {

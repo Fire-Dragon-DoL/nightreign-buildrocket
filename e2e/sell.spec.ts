@@ -55,18 +55,31 @@ const save = async () =>
 
 async function stubSavePicker(page: Page) {
   await page.addInitScript(() => {
-    const w = window as unknown as { __written: string[]; showSaveFilePicker: unknown };
+    const w = window as unknown as {
+      __written: string[];
+      __picked: string[];
+      showSaveFilePicker: unknown;
+    };
     w.__written = [];
-    w.showSaveFilePicker = async (options: { suggestedName: string }) => ({
-      name: options.suggestedName,
-      queryPermission: async () => 'granted',
-      createWritable: async () => ({
-        write: async (data: string) => w.__written.push(data),
-        close: async () => {},
-      }),
-    });
+    w.__picked = [];
+    w.showSaveFilePicker = async (options: { suggestedName: string }) => (
+      w.__picked.push(options.suggestedName),
+      {
+        kind: 'file',
+        name: options.suggestedName,
+        queryPermission: async () => 'granted',
+        createWritable: async () => ({
+          write: async (data: string) => w.__written.push(data),
+          close: async () => {},
+        }),
+      }
+    );
   });
 }
+
+/** Names suggested to the save picker, in order (each one = the picker was shown). */
+const picked = (page: Page) =>
+  page.evaluate(() => (window as unknown as { __picked: string[] }).__picked);
 
 const lastWritten = (page: Page) =>
   page.evaluate(() => (window as unknown as { __written: string[] }).__written.at(-1) ?? '');
@@ -106,14 +119,14 @@ test('plans what to sell, saves and reloads the plan, seeds from builds', async 
   expect((await lastWritten(page)).startsWith('﻿Risk,Why,Sell,Owned,Relic,')).toBe(true);
 
   // Save the plan, start over, load it back.
-  await page.getByTestId('rsp-save').click();
-  await expect(page.getByTestId('rsp-message')).toContainText('Saved');
-  const rsp = await lastWritten(page);
-  expect(JSON.parse(rsp).format).toBe('buildrocket-rsp');
+  await page.getByTestId('rnp-save').click();
+  await expect(page.getByTestId('rnp-message')).toContainText('Saved');
+  const rnp = await lastWritten(page);
+  expect(JSON.parse(rnp).format).toBe('buildrocket-rnp');
   await page.getByRole('button', { name: 'New', exact: true }).click();
   await expect(page.getByTestId('sell-summary')).toContainText('0 kept');
-  await page.getByTestId('rsp-input').setInputFiles(await writeTemp('plan.rsp', rsp));
-  await expect(page.getByTestId('rsp-status')).toContainText('plan.rsp · 1 need(s)');
+  await page.getByTestId('rnp-input').setInputFiles(await writeTemp('plan.rnp', rnp));
+  await expect(page.getByTestId('rnp-status')).toContainText('plan.rnp · 1 need(s)');
   await expect(page.getByTestId('sell-summary')).toContainText('2 kept');
 
   // Protect the save's build: its needs merge into the one list, no new group.
@@ -124,7 +137,7 @@ test('plans what to sell, saves and reloads the plan, seeds from builds', async 
   await expect(page.getByTestId('seed-message')).toContainText('Imported 1 build(s)');
   await expect(page.getByTestId('group-card')).toHaveCount(1);
   await expect(page.getByTestId('group-name')).toHaveCount(0);
-  await expect(page.getByTestId('rsp-status')).not.toContainText('· 1 need(s)');
+  await expect(page.getByTestId('rnp-status')).not.toContainText('· 1 need(s)');
 });
 
 test('builds, edits and reorders combos; copies a relic from the results', async ({ page }) => {
@@ -196,4 +209,70 @@ test('builds, edits and reorders combos; copies a relic from the results', async
   await rows.nth(1).getByTestId('need-drag').dragTo(rows.nth(0));
   await expect(rows.nth(0)).toContainText('Magic Attack Power Up +2');
   await expect(rows.nth(1).getByTestId('combo-any')).toBeVisible();
+});
+
+test('Save writes to the last file; Save as asks; .rsp plans open; unsaved changes ask before closing', async ({
+  page,
+}) => {
+  await stubSavePicker(page);
+  await page.goto(SELL_URL);
+  const addEffect = (id: number) => page.getByTestId('group-add-effect').fill(`x #${id}`);
+  const written = () =>
+    page.evaluate(() => (window as unknown as { __written: string[] }).__written.length);
+  await page.getByTestId('tab-groups').click();
+
+  // First Save asks where; the next ones write there without asking.
+  await addEffect(7001502);
+  await expect(page.getByTestId('rnp-target')).toContainText('Save asks where to save');
+  await page.getByTestId('rnp-save').click();
+  await expect(page.getByTestId('rnp-message')).toContainText('Saved nightreign-relic-needs.rnp');
+  await expect(page.getByTestId('rnp-target')).toHaveText(
+    'Save writes to nightreign-relic-needs.rnp',
+  );
+  await addEffect(6001601);
+  await page.getByTestId('rnp-save').click();
+  await expect.poll(written).toBe(2);
+  expect(await picked(page)).toEqual(['nightreign-relic-needs.rnp']);
+
+  // Save as always asks, and Save then goes to that file.
+  await page.getByTestId('rnp-save-as').click();
+  await expect.poll(() => picked(page)).toHaveLength(2);
+  await page.getByTestId('rnp-save').click();
+  await expect.poll(written).toBe(4);
+  expect(await picked(page)).toHaveLength(2);
+
+  // A plan from before the rename opens; Save asks for a new .rnp file.
+  const old = JSON.parse(await lastWritten(page));
+  old.format = 'buildrocket-rsp';
+  await page
+    .getByTestId('rnp-input')
+    .setInputFiles(await writeTemp('old.rsp', JSON.stringify(old)));
+  await expect(page.getByTestId('rnp-status')).toContainText('old.rsp · 2 need(s)');
+  await page.getByTestId('rnp-save').click();
+  await expect
+    .poll(() => picked(page))
+    .toEqual(['nightreign-relic-needs.rnp', 'nightreign-relic-needs.rnp', 'old.rnp']);
+
+  // Unsaved changes: closing the tab asks first.
+  await addEffect(6611302);
+  await expect(page.getByTestId('rnp-status')).toContainText('(changed)');
+  const asked = new Promise<string>((done) =>
+    page.once('dialog', (d) => {
+      done(d.type());
+      void d.dismiss();
+    }),
+  );
+  await page.close({ runBeforeUnload: true });
+  expect(await asked).toBe('beforeunload');
+  expect(page.isClosed()).toBe(false);
+});
+
+test('without the File System Access API there is only Save as (a download)', async ({ page }) => {
+  await page.addInitScript(() => {
+    delete (window as { showSaveFilePicker?: unknown }).showSaveFilePicker;
+  });
+  await page.goto(SELL_URL);
+  await expect(page.getByTestId('rnp-save-as')).toBeVisible();
+  await expect(page.getByTestId('rnp-save')).toHaveCount(0);
+  await expect(page.getByTestId('rnp-target')).toHaveText('Not saved yet');
 });

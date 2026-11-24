@@ -4,7 +4,7 @@ import { catalog } from '../catalog/catalog.ts';
 import { emptyConfig, type Need } from './config.ts';
 import { buildEffectIndex } from './effects.ts';
 import { planSell } from './planner.ts';
-import { parseRsp, serializeRsp } from './rsp.ts';
+import { parseRnp, serializeRnp } from './rnp.ts';
 import { sectionPlan } from './sections.ts';
 import { seedFromBuild } from './seed.ts';
 
@@ -101,9 +101,9 @@ describe('aliases (same effect in game, different id)', () => {
 
   it('.rsp files and seeding store the effect, not the alias', () => {
     const doc = JSON.parse(
-      serializeRsp({ ...emptyConfig(), groups: [{ name: 'x', needs: [need(EARRING_SKILL)] }] }),
+      serializeRnp({ ...emptyConfig(), groups: [{ name: 'x', needs: [need(EARRING_SKILL)] }] }),
     );
-    const parsed = parseRsp(JSON.stringify(doc));
+    const parsed = parseRnp(JSON.stringify(doc));
     expect(parsed.config.groups[0]?.needs[0]).toMatchObject({ effect: SKILL });
     expect(parsed.warnings[0]).toContain('same effect');
 

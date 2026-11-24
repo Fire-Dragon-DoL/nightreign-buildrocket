@@ -1,5 +1,7 @@
 /**
- * `.rsp` file: a saved Sell Planner config (Relic Sell Plan).
+ * `.rnp` file: a saved plan of the relics you want to keep (Relic Needs Plan), used by the Sell
+ * Planner and Secondary Pool Picks. Files saved before the rename (`.rsp`, format
+ * `buildrocket-rsp`, same content) still load.
  *
  * Version 1: `{ format, version, savedAt, effectRules, groups, neverSell }`.
  * Ids are written as `{ id, name }` like the builds JSON, so the file stays
@@ -24,8 +26,12 @@ import {
   type SellConfig,
 } from './config.ts';
 
-export const RSP_FORMAT = 'buildrocket-rsp';
-export const RSP_VERSION = 1;
+export const RNP_FORMAT = 'buildrocket-rnp';
+/** Format name of plans saved before the rename (`.rsp` files): same content, still loaded. */
+export const LEGACY_RSP_FORMAT = 'buildrocket-rsp';
+/** File extension of plans. */
+export const RNP_EXTENSION = '.rnp';
+export const RNP_VERSION = 1;
 
 interface Named {
   id: number;
@@ -47,9 +53,9 @@ interface NeedJson {
   curseOverrides?: { curse: Named; penalty: CursePenalty }[];
 }
 
-export interface RspDocument {
-  format: typeof RSP_FORMAT;
-  version: typeof RSP_VERSION;
+export interface RnpDocument {
+  format: typeof RNP_FORMAT;
+  version: typeof RNP_VERSION;
   savedAt: string;
   effectRules: {
     families: { effect: Named; family: string; level: number }[];
@@ -62,8 +68,8 @@ export interface RspDocument {
   neverSell: Named[];
 }
 
-export class RspError extends Error {
-  override name = 'RspError';
+export class RnpError extends Error {
+  override name = 'RnpError';
 }
 
 const effect = (id: number): Named => ({ id, name: effectName(id) });
@@ -104,11 +110,11 @@ function needToJson(need: Need): NeedJson {
   return json;
 }
 
-export function toRspDocument(config: SellConfig, now = new Date()): RspDocument {
+export function toRnpDocument(config: SellConfig, now = new Date()): RnpDocument {
   const r = config.effectRules;
   return {
-    format: RSP_FORMAT,
-    version: RSP_VERSION,
+    format: RNP_FORMAT,
+    version: RNP_VERSION,
     savedAt: now.toISOString(),
     effectRules: {
       families: entries(r.families).map(([id, f]) => ({ effect: effect(id), ...f })),
@@ -128,24 +134,24 @@ export function toRspDocument(config: SellConfig, now = new Date()): RspDocument
   };
 }
 
-export const serializeRsp = (config: SellConfig, now?: Date): string =>
-  `${JSON.stringify(toRspDocument(config, now), null, 2)}\n`;
+export const serializeRnp = (config: SellConfig, now?: Date): string =>
+  `${JSON.stringify(toRnpDocument(config, now), null, 2)}\n`;
 
 // --- Reading -----------------------------------------------------------------
 
 const idOf = (value: unknown, what: string): number => {
   const id = (value as Named | null)?.id;
   if (typeof id !== 'number' || !Number.isInteger(id))
-    throw new RspError(`Missing id for ${what}.`);
+    throw new RnpError(`Missing id for ${what}.`);
   return id;
 };
 const list = (value: unknown, what: string): unknown[] => {
   if (value === undefined) return [];
-  if (!Array.isArray(value)) throw new RspError(`${what} must be a list.`);
+  if (!Array.isArray(value)) throw new RnpError(`${what} must be a list.`);
   return value;
 };
 const oneOf = <T extends string>(value: unknown, allowed: readonly T[], what: string): T => {
-  if (!allowed.includes(value as T)) throw new RspError(`Invalid ${what}: ${String(value)}.`);
+  if (!allowed.includes(value as T)) throw new RnpError(`Invalid ${what}: ${String(value)}.`);
   return value as T;
 };
 const pair = (value: unknown, what: string): [number, number] => {
@@ -154,14 +160,14 @@ const pair = (value: unknown, what: string): [number, number] => {
 };
 const copiesOf = (value: unknown): number => {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 99) {
-    throw new RspError(`Invalid copies: ${String(value)}.`);
+    throw new RnpError(`Invalid copies: ${String(value)}.`);
   }
   return value;
 };
 
 function needFromJson(value: unknown): Need {
   const n = value as Partial<NeedJson> | null;
-  if (!n || typeof n !== 'object') throw new RspError('Invalid need.');
+  if (!n || typeof n !== 'object') throw new RnpError('Invalid need.');
   const base = {
     copies: copiesOf(n.copies),
     colorScope: oneOf(n.colorScope, ['perColor', 'any'] as const, 'color scope'),
@@ -186,7 +192,7 @@ function needFromJson(value: unknown): Need {
   if (n.kind === 'effect') {
     const need: Need = { kind: 'effect', effect: idOf(n.effect, 'effect'), ...base, ...extra };
     if (n.minLevel !== undefined) {
-      if (typeof n.minLevel !== 'number') throw new RspError('Invalid minimum level.');
+      if (typeof n.minLevel !== 'number') throw new RnpError('Invalid minimum level.');
       need.minLevel = n.minLevel;
     }
     return need;
@@ -202,50 +208,53 @@ function needFromJson(value: unknown): Need {
     for (const m of [...members, ...slots.flatMap((slot) => slot as unknown[])]) {
       const level = (m as { minLevel?: unknown }).minLevel;
       if (level === undefined) continue;
-      if (typeof level !== 'number') throw new RspError('Invalid combo minimum level.');
+      if (typeof level !== 'number') throw new RnpError('Invalid combo minimum level.');
       minLevels[idOf(m, 'combo effect')] = level;
     }
     if (effects.length + anyOf.length === 0) {
-      throw new RspError('A combo needs at least one effect.');
+      throw new RnpError('A combo needs at least one effect.');
     }
-    if (anyOf.some((slot) => slot.length === 0)) throw new RspError('Empty combo "any of" slot.');
+    if (anyOf.some((slot) => slot.length === 0)) throw new RnpError('Empty combo "any of" slot.');
     const combo: Need = { kind: 'combo', effects, ...base, ...extra };
     if (anyOf.length > 0) combo.anyOf = anyOf;
     if (Object.keys(minLevels).length > 0) combo.minLevels = minLevels;
     return combo;
   }
-  throw new RspError(`Unknown need kind: ${String(n.kind)}.`);
+  throw new RnpError(`Unknown need kind: ${String(n.kind)}.`);
 }
 
-export interface ParsedRsp {
+export interface ParsedRnp {
   config: SellConfig;
   /** Human-readable problems that did not stop loading (unknown ids...). */
   warnings: string[];
 }
 
-export function parseRsp(text: string): ParsedRsp {
+export function parseRnp(text: string): ParsedRnp {
   let value: unknown;
   try {
     value = JSON.parse(text);
   } catch (cause) {
-    throw new RspError('Not valid JSON.', { cause });
+    throw new RnpError('Not valid JSON.', { cause });
   }
-  const doc = value as Partial<RspDocument> | null;
-  if (doc?.format !== RSP_FORMAT) throw new RspError('Not a Buildrocket sell plan (.rsp) file.');
-  if (doc.version !== RSP_VERSION)
-    throw new RspError(`Unsupported version ${String(doc.version)}.`);
+  const doc = value as Partial<RnpDocument> | null;
+  const format = doc?.format as string | undefined;
+  if (!doc || (format !== RNP_FORMAT && format !== LEGACY_RSP_FORMAT)) {
+    throw new RnpError('Not a Buildrocket relic needs plan (.rnp or .rsp) file.');
+  }
+  if (doc.version !== RNP_VERSION)
+    throw new RnpError(`Unsupported version ${String(doc.version)}.`);
 
-  const rules = (doc.effectRules ?? {}) as Partial<RspDocument['effectRules']>;
+  const rules = (doc.effectRules ?? {}) as Partial<RnpDocument['effectRules']>;
   const effectRules = emptyOverrides();
   for (const f of list(rules.families, 'families')) {
     const e = f as { effect?: unknown; family?: unknown; level?: unknown };
     if (typeof e.family !== 'string' || typeof e.level !== 'number')
-      throw new RspError('Invalid family override.');
+      throw new RnpError('Invalid family override.');
     effectRules.families[idOf(e.effect, 'family override')] = { family: e.family, level: e.level };
   }
   for (const s of list(rules.stacksWithSelf, 'stacksWithSelf')) {
     const e = s as { effect?: unknown; stacks?: unknown };
-    if (typeof e.stacks !== 'boolean') throw new RspError('Invalid stacking rule.');
+    if (typeof e.stacks !== 'boolean') throw new RnpError('Invalid stacking rule.');
     effectRules.stacksWithSelf[idOf(e.effect, 'stacking rule')] = e.stacks;
   }
   effectRules.noStack = list(rules.noStack, 'noStack').map((p) => pair(p, 'noStack pair'));
