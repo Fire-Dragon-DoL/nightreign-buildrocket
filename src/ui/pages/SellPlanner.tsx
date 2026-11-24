@@ -30,6 +30,7 @@ import { EffectsTab } from '../sell/EffectsTab.tsx';
 import { GroupsTab } from '../sell/GroupsTab.tsx';
 import { ResultsView } from '../sell/ResultsView.tsx';
 import { StackingTab } from '../sell/StackingTab.tsx';
+import { publishSellPlan } from '../sell/sharedPlan.ts';
 import { useLoadedFile } from '../useLoadedFile.ts';
 
 type Tab = 'results' | 'normal' | 'deep' | 'groups' | 'stacking';
@@ -74,6 +75,11 @@ export function SellPlanner() {
     (fn: (b: Builder) => Builder) => setPopup((p) => (p ? fn(p) : p)),
     [],
   );
+
+  // Secondary Pool Picks can use the plan open here.
+  useEffect(() => {
+    publishSellPlan({ config, name: configFile?.name ?? null, dirty });
+  }, [config, configFile, dirty]);
 
   const update: ConfigUpdate = useCallback((fn) => {
     setConfig((c) => fn(c));

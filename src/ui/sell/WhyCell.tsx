@@ -16,7 +16,7 @@ export const VERDICT_LABELS: Record<Verdict, string> = {
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
 
 /** A relic named in a reason, drawn like the relic column: icon and name, effects stacked below. */
-function RelicRef({ relic }: { relic: RelicSpec }) {
+export function RelicRef({ relic }: { relic: RelicSpec }) {
   const color = catalog().relic(relic.itemId)?.color;
   return (
     <div className={`relic-ref relic--${colorClass(color)}`}>

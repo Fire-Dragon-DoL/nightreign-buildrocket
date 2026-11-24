@@ -1,5 +1,6 @@
 import { BuildsViewer } from './pages/BuildsViewer.tsx';
 import { MissingRelics } from './pages/MissingRelics.tsx';
+import { SecondaryPicks } from './pages/SecondaryPicks.tsx';
 import { SellPlanner } from './pages/SellPlanner.tsx';
 import { type Route, useHashRoute } from './useHashRoute.ts';
 
@@ -7,6 +8,7 @@ const MENU: { route: Route; label: string }[] = [
   { route: 'builds', label: 'Builds Viewer' },
   { route: 'missing', label: 'Relics Needs' },
   { route: 'sell', label: 'Sell Planner' },
+  { route: 'picks', label: 'Secondary Pool Picks' },
 ];
 
 export function App() {
@@ -38,6 +40,9 @@ export function App() {
       </div>
       <div className="page" hidden={route !== 'sell'}>
         <SellPlanner />
+      </div>
+      <div className="page" hidden={route !== 'picks'}>
+        <SecondaryPicks />
       </div>
 
       <footer className="app__footer muted">
