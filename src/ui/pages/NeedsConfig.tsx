@@ -95,6 +95,8 @@ export function NeedsConfig() {
       )}
       {tab === 'groups' && (
         <GroupsTab
+          // Ticked needs are positions in the plan: start afresh with another plan.
+          key={plan.opened}
           config={config}
           update={updatePlan}
           index={index}

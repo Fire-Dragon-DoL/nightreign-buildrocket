@@ -19,6 +19,8 @@ export interface PlanState {
   warnings: string[];
   /** Last thing that happened (loaded, saved, failed). */
   message: string | null;
+  /** Counts plans opened or started: views holding positions in the old plan reset on change. */
+  opened: number;
 }
 
 let state: PlanState = {
@@ -27,6 +29,7 @@ let state: PlanState = {
   dirty: false,
   warnings: [],
   message: null,
+  opened: 0,
 };
 const listeners = new Set<() => void>();
 
@@ -55,6 +58,7 @@ export async function openPlan(file: File, handle?: FileSystemFileHandle): Promi
       dirty: false,
       warnings: parsed.warnings,
       message: `Loaded ${file.name}.`,
+      opened: state.opened + 1,
     });
   } catch (err) {
     set({ message: `Could not load ${file.name}: ${(err as Error).message}` });
@@ -82,6 +86,7 @@ export function newPlan(): void {
     dirty: false,
     warnings: [],
     message: 'Started a new plan.',
+    opened: state.opened + 1,
   });
 }
 

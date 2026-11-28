@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import type { CharacterData } from '../../core/builds/characters.ts';
 import {
   COMBO_ROLL_LABELS,
@@ -14,10 +14,13 @@ import {
 import type { EffectIndex } from '../../core/sell/effects.ts';
 import { withDefaultLevels } from '../../core/sell/needs.ts';
 import { needRelicKind } from '../../core/sell/planner.ts';
+import { parseRnp, serializeRnp } from '../../core/sell/rnp.ts';
+import { isAbortError, RNP_FILE_TYPE, saveTextFile } from '../../storage/files.ts';
 import { applyEdit, type Builder, builderFromNeed, followEdit } from './builder.ts';
 import { ComboBuilder } from './ComboBuilder.tsx';
 import {
   acceptLowerLevels,
+  addedMessage,
   addNeeds,
   type ConfigUpdate,
   DEFAULT_GROUP,
@@ -39,8 +42,24 @@ import {
   ScopeSelect,
 } from './controls.tsx';
 import { SeedTab } from './SeedTab.tsx';
+import {
+  clickSelect,
+  emptySelection,
+  isSelected,
+  planNeeds,
+  type Selection,
+  selectAll,
+  selectedIn,
+  selectedNeeds,
+  selectionAfterMove,
+  selectionAfterRemove,
+  sharedPlan,
+} from './selection.ts';
 
 type SetBuilder = (fn: (b: Builder) => Builder) => void;
+type SetSelection = (fn: (s: Selection) => Selection) => void;
+
+export const SHARED_NEEDS_NAME = 'nightreign-shared-needs.rnp';
 
 interface Props {
   config: SellConfig;
@@ -67,6 +86,42 @@ export function GroupsTab({
     0,
     config.groups.findIndex((g) => g.name === DEFAULT_GROUP),
   );
+  const [selection, setSelection] = useState(emptySelection);
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
+  const picked = selectedNeeds(config, selection);
+  const importInput = useRef<HTMLInputElement>(null);
+
+  const exportSelected = async () => {
+    try {
+      const handle = await saveTextFile(
+        serializeRnp(sharedPlan(picked)),
+        SHARED_NEEDS_NAME,
+        RNP_FILE_TYPE,
+      );
+      setShareMessage(
+        `Exported ${picked.length} need${picked.length === 1 ? '' : 's'} to ${handle?.name ?? SHARED_NEEDS_NAME}.`,
+      );
+    } catch (err) {
+      if (!isAbortError(err)) setShareMessage(`Export failed: ${(err as Error).message}`);
+    }
+  };
+
+  const importFrom = async (file: File) => {
+    try {
+      // As the sharer set them (no default levels added), so identical needs are found.
+      const needs = planNeeds(parseRnp(await file.text()).config);
+      let result = { added: 0, updated: 0, duplicates: 0 };
+      update((c) => {
+        const r = addNeeds(c, needs, index);
+        result = r;
+        return r.config;
+      });
+      setShareMessage(`From ${file.name}: ${addedMessage(result)}`);
+    } catch (err) {
+      setShareMessage(`Could not import ${file.name}: ${(err as Error).message}`);
+    }
+  };
+
   return (
     <div className="groups-tab">
       <div className="toolbar">
@@ -81,7 +136,10 @@ export function GroupsTab({
           data-testid="remove-duplicates"
           disabled={duplicates === 0}
           title="Needs listed more than once (same effects, levels, colors and relic kind): keep one, with the most copies and the highest importance"
-          onClick={() => update((c) => removeDuplicateNeeds(c, index).config)}
+          onClick={() => {
+            update((c) => removeDuplicateNeeds(c, index).config);
+            setSelection(emptySelection);
+          }}
         >
           {duplicates === 0
             ? 'No duplicates'
@@ -97,6 +155,57 @@ export function GroupsTab({
           Accept lower levels for stacking effects
         </button>
       </div>
+      <div className="toolbar" data-testid="share-bar">
+        <span className="muted">
+          Share: tick needs (Shift-click ticks a range) to export them; importing skips needs you
+          have.
+        </span>
+        <div className="toolbar__spacer" />
+        <button
+          type="button"
+          data-testid="needs-export"
+          disabled={picked.length === 0}
+          onClick={() => void exportSelected()}
+        >
+          {picked.length === 0 ? 'Export selected…' : `Export ${picked.length} selected…`}
+        </button>
+        {picked.length > 0 && (
+          <button
+            type="button"
+            className="button--quiet"
+            data-testid="needs-select-none"
+            onClick={() => setSelection(emptySelection)}
+          >
+            Clear selection
+          </button>
+        )}
+        <button
+          type="button"
+          className="button--quiet"
+          data-testid="needs-import"
+          title="Add the needs of another .rnp to this plan"
+          onClick={() => importInput.current?.click()}
+        >
+          Import needs…
+        </button>
+        <input
+          ref={importInput}
+          type="file"
+          hidden
+          accept=".rnp,.rsp,.json,application/json"
+          data-testid="needs-import-input"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void importFrom(file);
+            e.target.value = '';
+          }}
+        />
+      </div>
+      {shareMessage && (
+        <p className="message" data-testid="share-message">
+          {shareMessage}
+        </p>
+      )}
       <details className="build-picker" data-testid="seed">
         <summary>Protect relics used in builds…</summary>
         <SeedTab character={character} update={update} index={index} />
@@ -107,7 +216,10 @@ export function GroupsTab({
           <button
             type="button"
             data-testid="merge-groups"
-            onClick={() => update((c) => mergeAllGroups(c))}
+            onClick={() => {
+              update((c) => mergeAllGroups(c));
+              setSelection(emptySelection);
+            }}
           >
             Merge into one list
           </button>
@@ -124,6 +236,8 @@ export function GroupsTab({
             groupIndex={gi}
             named
             setBuilder={setBuilder}
+            selection={selection}
+            setSelection={setSelection}
           />
         ))
       ) : (
@@ -134,6 +248,8 @@ export function GroupsTab({
           groupIndex={main}
           named={false}
           setBuilder={setBuilder}
+          selection={selection}
+          setSelection={setSelection}
         />
       )}
       <section className="group-card">
@@ -300,7 +416,15 @@ function GroupCard({
   groupIndex,
   named,
   setBuilder,
-}: Props & { groupIndex: number; named: boolean; setBuilder: SetBuilder }) {
+  selection,
+  setSelection,
+}: Props & {
+  groupIndex: number;
+  named: boolean;
+  setBuilder: SetBuilder;
+  selection: Selection;
+  setSelection: SetSelection;
+}) {
   const group = config.groups[groupIndex] ?? { name: DEFAULT_GROUP, needs: [] };
   const [dragging, setDragging] = useState<number | null>(null);
   const [dropAt, setDropAt] = useState<number | null>(null);
@@ -311,6 +435,8 @@ function GroupCard({
   // New needs go to the one list (merged with an identical need if there is one).
   const addNeed = (need: Need) =>
     update((c) => addNeeds(c, [withDefaultLevels(need, index)], index).config);
+  const ticked = selectedIn(selection, groupIndex);
+  const allTicked = group.needs.length > 0 && ticked === group.needs.length;
 
   return (
     <section className="group-card" data-testid="group-card">
@@ -354,6 +480,22 @@ function GroupCard({
           <table className="effect-table">
             <thead>
               <tr>
+                <th>
+                  <input
+                    type="checkbox"
+                    data-testid="need-select-all"
+                    aria-label="Select all needs"
+                    checked={allTicked}
+                    ref={(el) => {
+                      if (el) el.indeterminate = ticked > 0 && !allTicked;
+                    }}
+                    onChange={(e) =>
+                      setSelection((s) =>
+                        selectAll(s, groupIndex, group.needs.length, e.target.checked),
+                      )
+                    }
+                  />
+                </th>
                 <th />
                 <th>Need</th>
                 <th>Min level</th>
@@ -393,11 +535,25 @@ function GroupCard({
                         const from = dragging;
                         update((c) => moveNeed(c, groupIndex, from, ni));
                         setBuilder((b) => followEdit(b, groupIndex, from, ni));
+                        setSelection((s) => selectionAfterMove(s, groupIndex, from, ni));
                       }
                       setDragging(null);
                       setDropAt(null);
                     }}
                   >
+                    <td>
+                      <input
+                        type="checkbox"
+                        data-testid="need-select"
+                        aria-label="Select for export"
+                        checked={isSelected(selection, groupIndex, ni)}
+                        // Click (not change) to see Shift; the state comes from the selection.
+                        onChange={() => {}}
+                        onClick={(e) =>
+                          setSelection((s) => clickSelect(s, groupIndex, ni, e.shiftKey))
+                        }
+                      />
+                    </td>
                     <td className="need-row__handle">
                       {/* Mouse only: drag and drop has no keyboard equivalent here. */}
                       {/* biome-ignore lint/a11y/noStaticElementInteractions: drag handle */}
@@ -572,6 +728,7 @@ function GroupCard({
                         onClick={() => {
                           setNeed(ni, null);
                           setBuilder((b) => followEdit(b, groupIndex, ni, null));
+                          setSelection((s) => selectionAfterRemove(s, groupIndex, ni));
                         }}
                       >
                         Remove

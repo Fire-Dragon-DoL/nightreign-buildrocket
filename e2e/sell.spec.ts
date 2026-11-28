@@ -448,3 +448,62 @@ test('removes needs listed twice from an opened plan', async ({ page }) => {
   await expect(page.getByTestId('need-row').locator('.copies')).toHaveValue('3');
   await expect(page.getByTestId('remove-duplicates')).toBeDisabled();
 });
+
+test('exports ticked needs and imports them into another plan, skipping ones it has', async ({
+  page,
+}) => {
+  await stubSavePicker(page);
+  await page.goto(SELL_URL);
+  const effect = (id: number) => ({
+    kind: 'effect',
+    effect: { id },
+    copies: 1,
+    colorScope: 'perColor',
+    importance: 'mustKeep',
+  });
+  const plan = (needs: unknown[]) =>
+    JSON.stringify({
+      format: 'buildrocket-rnp',
+      version: 1,
+      savedAt: '2026-11-28T00:00:00.000Z',
+      effectRules: { families: [], stacksWithSelf: [], noStack: [], stack: [], curseDefaults: [] },
+      groups: [{ name: 'General', needs }],
+      neverSell: [],
+    });
+  const ids = [MAGIC_2, 7000002, 7000302, 7000402];
+  await page
+    .getByTestId('rnp-input')
+    .setInputFiles(await writeTemp('mine.rnp', plan(ids.map(effect))));
+  await page.getByTestId('menu-needs').click();
+  await page.getByTestId('tab-groups').click();
+  await expect(page.getByTestId('needs-export')).toBeDisabled();
+
+  // Tick the second, Shift-tick the fourth: the three in between are selected.
+  const boxes = page.getByTestId('need-select');
+  await boxes.nth(1).click();
+  await boxes.nth(3).click({ modifiers: ['Shift'] });
+  await expect(boxes.nth(0)).not.toBeChecked();
+  await expect(boxes.nth(2)).toBeChecked();
+  await expect(page.getByTestId('need-select-all')).toHaveJSProperty('indeterminate', true);
+  await page.getByTestId('needs-export').click();
+  await expect(page.getByTestId('share-message')).toContainText('Exported 3 needs');
+  const shared = JSON.parse(await lastWritten(page));
+  expect(shared.format).toBe('buildrocket-rnp');
+  expect(shared.groups[0].needs.map((n: { effect: { id: number } }) => n.effect.id)).toEqual(
+    ids.slice(1),
+  );
+
+  // Another plan already wanting one of them: import adds the other two.
+  await page.getByTestId('rnp-new').click();
+  await page
+    .getByTestId('rnp-input')
+    .setInputFiles(await writeTemp('theirs.rnp', plan([effect(7000302), effect(7000300)])));
+  await expect(page.getByTestId('need-select').first()).not.toBeChecked();
+  await page
+    .getByTestId('needs-import-input')
+    .setInputFiles(await writeTemp('shared.rnp', JSON.stringify(shared)));
+  await expect(page.getByTestId('share-message')).toContainText(
+    'From shared.rnp: Added 2. 1 already in your plan, skipped.',
+  );
+  await expect(page.getByTestId('rnp-status')).toContainText('theirs.rnp (changed) · 4 need(s)');
+});
